@@ -40,6 +40,33 @@ mvn -q -DskipTests package  # compile only
 mvn -q -pl oms-codec test   # single module
 ```
 
+### Toolchain setup
+
+The build needs **Java 21** + **Maven**. On this machine they are installed in
+user space (no root) and symlinked onto `PATH`:
+
+| Tool | Location | Version |
+| --- | --- | --- |
+| JDK (Temurin) | `~/tools/jdk-21.0.12.1+1` | 21.0.12.1 LTS |
+| Maven | `~/tools/apache-maven-3.9.16` | 3.9.16 |
+
+- `~/.local/bin/{java,javac,mvn}` are symlinks to the above (`~/.local/bin` is on `PATH`).
+- `JAVA_HOME=~/tools/jdk-21.0.12.1+1` is exported from `~/.bashrc`.
+- Verify with `java -version && mvn -version`; if missing, run the bootstrap below.
+
+Reconstruct on a fresh Linux/x64 machine:
+
+```bash
+mkdir -p ~/tools && cd ~/tools
+curl -sSL -o jdk21.tar.gz "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse"
+curl -sSL -o maven.tar.gz "https://dlcdn.apache.org/maven/maven-3/3.9.16/binaries/apache-maven-3.9.16-bin.tar.gz"
+tar xzf jdk21.tar.gz && tar xzf maven.tar.gz
+ln -sf ~/tools/jdk-*/bin/java  ~/.local/bin/java
+ln -sf ~/tools/jdk-*/bin/javac ~/.local/bin/javac
+ln -sf ~/tools/apache-maven-*/bin/mvn ~/.local/bin/mvn
+echo 'export JAVA_HOME='"$HOME"'/tools/'"$(ls -d jdk-* | head -1)" >> ~/.bashrc
+```
+
 Read `TESTING.md` and `TEST_PLAN.md` before writing tests. The guiding principle
 there: everything is mocked except the codegen'd codec, order state machine,
 price-check logic, and persistence. Prefer deterministic, table-driven fixtures

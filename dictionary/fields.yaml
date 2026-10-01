@@ -1,0 +1,508 @@
+# OCG-C Binary Protocol — Data Dictionary (fields)
+# Source: HKEX OCG-C Binary Trading Interface Specifications §8
+# This is the single source of truth for codegen.
+version: 1
+
+# Data type taxonomy:
+#   uint8, int8, uint16, int16, uint32, int32, uint64, int64  -> little-endian
+#   decimal      -> 8-byte signed little-endian, 8 implied decimal places
+#   byte         -> single ASCII character (NOT a number)
+#   alpha-fixed  -> null-terminated ASCII; size includes the null terminator
+#   alpha-var    -> 2-byte UInt16 length prefix (includes null), then ASCII
+#   bitmap-fixed -> 32 bytes (256 bits), MSB-first
+#   bitmap-var   -> variable bitmap for repeating blocks (size in bytes given)
+
+header:
+  - name: startOfMessage
+    type: uint8            # always ASCII STX 0x02
+    size: 1
+  - name: length
+    type: uint16
+    size: 2
+  - name: messageType
+    type: uint8
+    size: 1
+  - name: sequenceNumber
+    type: uint32
+    size: 4
+  - name: possDup
+    type: uint8
+    size: 1
+    enums: { 0: "No", 1: "Yes" }
+  - name: possResend
+    type: uint8
+    size: 1
+    enums: { 0: "No", 1: "Yes" }
+  - name: compId
+    type: alpha-fixed
+    size: 12
+  - name: bodyFieldsPresenceMap
+    type: bitmap-fixed
+    size: 32
+
+trailer:
+  - name: checksum
+    type: uint32          # CRC32C, polynomial 0x1EDC6F41, over header+body
+    size: 4
+
+fields:
+  - name: aggressorIndicator
+    type: uint8
+    enums: { 0: "Passive", 1: "Aggressor" }
+  - name: amendRejectCode
+    type: uint16
+    enums:
+      0: "TooLateToAmend"
+      1: "UnknownOrder"
+      3: "PendingCancelOrReplace"
+      6: "DuplicateClientOrderId"
+      8: "PriceExceedsBand"
+      99: "Other"
+      100: "ReferencePriceNotAvailable"
+      101: "PriceExceedsBandNoOverride"
+      102: "PriceExceedsBand"
+      103: "NotionalExceedsThreshold"
+  - name: brokerId
+    type: alpha-fixed
+    size: 12
+  - name: brokerLocationId
+    type: alpha-fixed
+    size: 11
+  - name: businessRejectCode
+    type: uint16
+    enums:
+      0: "Other"
+      1: "UnknownId"
+      2: "UnknownSecurity"
+      3: "UnspecifiedMessageType"
+      4: "ApplicationNotAvailable"
+      5: "ConditionallyRequiredFieldMissing"
+      8: "ThrottleLimitExceeded"
+  - name: businessRejectReferenceId
+    type: alpha-fixed
+    size: 21
+  - name: bidSize
+    type: decimal
+  - name: bidPrice
+    type: decimal
+  - name: cancelRejectCode
+    type: uint16
+    enums:
+      0: "TooLateToCancel"
+      1: "UnknownOrder"
+      3: "PendingCancelOrReplace"
+      6: "DuplicateClientOrderId"
+      99: "Other"
+  - name: clearingInstruction
+    type: uint8
+    enums: { 0: "ProcessNormally", 1: "ExcludeFromAllNetting", 14: "BuyIn" }
+  - name: clientOrderId
+    type: alpha-fixed
+    size: 21
+  - name: counterpartyBcanField
+    type: alpha-fixed
+    size: 21
+  - name: counterpartyBrokerId
+    type: alpha-fixed
+    size: 12
+  - name: cumulativeQuantity
+    type: decimal
+  - name: disclosureInstructions
+    type: uint16
+  - name: endSequence
+    type: uint32
+  - name: entitlementAttributeType
+    type: uint16
+    enums: { 4000: "MinimumVolumeObligation", 4001: "MaximumSpreadObligation" }
+  - name: entitlementAttributeDataType
+    type: uint8
+    enums: { 7: "Decimal" }
+  - name: entitlementAttributeValue
+    type: alpha-fixed
+    size: 21
+  - name: entitlementId
+    type: alpha-fixed
+    size: 21
+  - name: entitlementIndicator
+    type: uint8
+    enums: { 0: "No", 1: "Yes" }
+  - name: entitlementRequestId
+    type: alpha-fixed
+    size: 21
+  - name: entitlementReportId
+    type: alpha-fixed
+    size: 21
+  - name: entitlementType
+    type: uint8
+    enums: { 0: "Trade", 1: "MakeMarket" }
+  - name: execType
+    type: byte
+    enums:
+      "0": "New"
+      "4": "Cancel"
+      "5": "Amend"
+      "8": "Reject"
+      C: "Expire"
+      F: "Trade"
+      H: "TradeCancel"
+      L: "System"
+      X: "CancelReject"
+      Y: "AmendReject"
+  - name: executionId
+    type: alpha-fixed
+    size: 21
+  - name: executionPrice
+    type: decimal
+  - name: executionQuantity
+    type: decimal
+  - name: executionInstructions
+    type: alpha-fixed
+    size: 21
+    multi: true
+    enums: { 0: "IgnorePriceValidityChecks", 1: "IgnoreNotionalValueChecks" }
+  - name: execRestatementReason
+    type: uint16
+    enums:
+      6: "CancelOnTradingHalt"
+      8: "MarketOperation"
+      100: "UnsolicitedCancelOriginalOrder"
+      101: "OnBehalfOfSingleCancel"
+      102: "OnBehalfOfMassCancel"
+      103: "MassCancelledByBroker"
+      104: "CancelOnDisconnect"
+      105: "CancelBrokerSuspended"
+      106: "CancelParticipantSuspended"
+      107: "SystemCancel"
+  - name: exchangeTradeType
+    type: byte
+    enums:
+      M: "Manual"
+      S: "ManualNonStandardPrice"
+      Q: "SpecialLot"
+      P: "OddLot"
+      R: "PreviousDay"
+      V: "Overseas"
+      E: "SpecialLotSemiAuto"
+      O: "OddLotSemiAuto"
+  - name: gapFill
+    type: byte
+    enums: { N: "Reset", Y: "GapFill" }
+  - name: instrumentScopeOperator
+    type: uint8
+    enums: { 1: "Include" }
+  - name: lastFragment
+    type: uint8
+    enums: { 0: "No", 1: "Yes" }
+  - name: leavesQuantity
+    type: decimal
+  - name: logoutText
+    type: alpha-var
+    maxLength: 75
+  - name: lotType
+    type: uint8
+    enums: { 1: "OddLot", 2: "RoundLot" }
+  - name: lookupRejectCode
+    type: uint8
+    enums: { 0: "InvalidClient", 1: "InvalidServiceType", 2: "InvalidProtocol", 3: "ClientBlocked", 4: "Other" }
+  - name: marketSegmentId
+    type: alpha-fixed
+    size: 20
+    enums: { MAIN: "Main", GEM: "Gem", NASD: "Nasd", ETS: "Ets" }
+  - name: massCancelRequestType
+    type: uint8
+    enums: { 1: "CancelForSecurity", 7: "CancelAllOrders", 9: "CancelForMarketSegment" }
+  - name: massActionReportId
+    type: alpha-fixed
+    size: 21
+  - name: massCancelResponse
+    type: uint8
+    enums: { 0: "Rejected", 1: "CancelForSecurity", 7: "CancelAllOrders", 9: "CancelForMarketSegment" }
+  - name: massCancelRejectCode
+    type: uint16
+    enums: { 8: "InvalidOrUnknownMarketSegment", 99: "Other" }
+  - name: matchType
+    type: uint8
+    enums: { 4: "AutoMatch", 5: "CrossAuction" }
+  - name: maxPriceLevels
+    type: uint8
+  - name: messageRejectCode
+    type: uint16
+    enums:
+      1: "RequiredFieldMissing"
+      2: "FieldNotDefined"
+      3: "UndefinedField"
+      4: "FieldWithoutValue"
+      5: "IncorrectValue"
+      6: "IncorrectDataFormat"
+      9: "CompIdProblem"
+      11: "InvalidMessageType"
+      13: "FieldAppearsMoreThanOnce"
+      99: "Other"
+  - name: newPassword
+    type: alpha-fixed
+    size: 450
+  - name: newSequenceNumber
+    type: uint32
+  - name: nextExpectedMessageSequence
+    type: uint32
+  - name: noEntitlements
+    type: uint16
+  - name: noEntitlementsPresenceMap
+    type: bitmap-var
+    size: 2
+  - name: noEntitlementAttributes
+    type: uint16
+  - name: noEntitlementAttributesPresenceMap
+    type: bitmap-var
+    size: 2
+  - name: noInstrumentScopes
+    type: uint16
+  - name: noInstrumentScopesPresenceMap
+    type: bitmap-var
+    size: 2
+  - name: noThrottles
+    type: uint16
+  - name: noThrottlesPresenceMap
+    type: bitmap-var
+    size: 2
+  - name: offerSize
+    type: decimal
+  - name: offerPrice
+    type: decimal
+  - name: orderId
+    type: alpha-fixed
+    size: 21
+  - name: owningBrokerId
+    type: alpha-fixed
+    size: 12
+  - name: orderQuantity
+    type: decimal
+  - name: orderRejectCode
+    type: uint16
+    enums:
+      3: "OrderExceedLimit"
+      6: "DuplicateOrder"
+      13: "IncorrectQty"
+      16: "PriceExceedsBand"
+      19: "ReferencePriceNotAvailable"
+      20: "NotionalExceedsThreshold"
+      99: "Other"
+      101: "PriceExceedsBandNoOverride"
+      102: "PriceExceedsBand"
+  - name: orderStatus
+    type: uint8
+    enums:
+      0: "New"
+      1: "PartiallyFilled"
+      2: "Filled"
+      4: "Cancelled"
+      6: "PendingCancel"
+      8: "Rejected"
+      10: "PendingNew"
+      12: "Expired"
+      14: "PendingAmend"
+  - name: orderType
+    type: uint8
+    enums: { 1: "Market", 2: "Limit" }
+  - name: orderRestrictions
+    type: alpha-fixed
+    size: 21
+    multi: true
+    enums:
+      2: "IndexArbitrage"
+      5: "MarketMakerInSecurity"
+      6: "MarketMakerInDerivativeUnderlying"
+  - name: orderCapacity
+    type: uint8
+    enums: { 1: "Agency", 2: "Principal" }
+  - name: orderCategory
+    type: uint8
+    enums: { 1: "InternalCrossOrder" }
+  - name: originalClientOrderId
+    type: alpha-fixed
+    size: 21
+  - name: password
+    type: alpha-fixed
+    size: 450
+  - name: positionEffect
+    type: uint8
+    enums: { 1: "Close" }
+  - name: price
+    type: decimal
+  - name: protocolType
+    type: uint8
+    enums: { 1: "Binary" }
+  - name: primaryIp
+    type: alpha-fixed
+    size: 16
+  - name: primaryPort
+    type: uint16
+  - name: quoteBidId
+    type: alpha-fixed
+    size: 21
+  - name: quoteOfferId
+    type: alpha-fixed
+    size: 21
+  - name: quoteMessageId
+    type: alpha-fixed
+    size: 21
+  - name: quoteType
+    type: uint8
+    enums: { 1: "Tradable" }
+  - name: quoteCancelType
+    type: uint8
+    enums: { 1: "CancelForSecurities" }
+  - name: quoteStatus
+    type: uint8
+    enums: { 0: "Accepted", 1: "CancelForSymbol", 5: "Rejected", 9: "QuoteNotFound" }
+  - name: quoteRejectCode
+    type: uint16
+    enums:
+      8: "InvalidPrice"
+      10: "PriceExceedsBand"
+      14: "NotionalExceedsThreshold"
+      16: "ReferencePriceNotAvailable"
+      99: "Other"
+      101: "PriceExceedsBandNoOverride"
+      102: "PriceExceedsBand"
+  - name: referenceExecutionId
+    type: alpha-fixed
+    size: 21
+  - name: referenceFieldName
+    type: alpha-fixed
+    size: 50
+  - name: referenceMessageType
+    type: uint8
+  - name: referenceSequenceNumber
+    type: uint32
+  - name: referenceTestRequestId
+    type: uint16
+  - name: reason
+    type: alpha-var
+    maxLength: 75
+  - name: requestResult
+    type: uint16
+    enums:
+      0: "ValidRequest"
+      1: "InvalidOrUnsupported"
+      2: "NoDataFound"
+      3: "NotAuthorized"
+      4: "DataTemporarilyUnavailable"
+      5: "RequestNotSupported"
+      99: "Other"
+  - name: securityExchange
+    type: alpha-fixed
+    size: 5
+    enums: { XHKG: "XHKG" }
+  - name: securityId
+    type: alpha-fixed
+    size: 21
+  - name: securityIdSource
+    type: uint8
+    enums: { 8: "ExchangeSymbol" }
+  - name: secondaryIp
+    type: alpha-fixed
+    size: 16
+  - name: secondaryPort
+    type: uint16
+  - name: sessionStatus
+    type: uint8
+    enums:
+      0: "SessionActive"
+      1: "SessionPasswordChanged"
+      2: "SessionPasswordDueToExpire"
+      3: "NewPasswordNotCompliant"
+      4: "SessionLogoutComplete"
+      5: "InvalidUsernameOrPassword"
+      6: "AccountLocked"
+      7: "LogonNotAllowed"
+      8: "PasswordExpired"
+      100: "PasswordChangeRequired"
+      101: "Other"
+  - name: side
+    type: uint8
+    enums: { 1: "Buy", 2: "Sell", 5: "SellShort" }
+  - name: startSequence
+    type: uint32
+  - name: status
+    type: uint8
+    enums: { 0: "Accepted", 1: "Rejected" }
+  - name: submittingBcanField
+    type: alpha-fixed
+    size: 21
+  - name: submittingBrokerId
+    type: alpha-fixed
+    size: 12
+  - name: text
+    type: alpha-var
+    maxLength: 50
+  - name: tif
+    type: uint8
+    enums: { 0: "Day", 3: "IOC", 4: "FOK", 9: "AtCrossing" }
+  - name: testMessageIndicator
+    type: uint8
+    enums: { 0: "ProductionMode", 1: "TestMode" }
+  - name: testRequestId
+    type: uint16
+  - name: totalNoPartyList
+    type: uint16
+  - name: transactionTime
+    type: alpha-fixed
+    size: 25
+  - name: tradeType
+    type: uint8
+    enums: { 4: "LateTrade", 22: "PrivatelyNegotiated", 102: "OddLotTrade", 104: "OverseasTrade" }
+  - name: tradeReportId
+    type: alpha-fixed
+    size: 21
+  - name: tradeReportTransType
+    type: uint8
+    enums: { 0: "New", 2: "Replace", 5: "CancelBackOut" }
+  - name: tradeReportType
+    type: uint8
+    enums: { 0: "New", 4: "Addendum", 6: "TradeReportCancel" }
+  - name: tradeReportStatus
+    type: uint8
+    enums: { 0: "Accepted", 1: "Rejected" }
+  - name: tradeReportRejectCode
+    type: uint16
+    enums:
+      4: "InvalidTradeType"
+      5: "PriceExceedsBand"
+      6: "ReferencePriceNotAvailable"
+      7: "NotionalExceedsThreshold"
+      99: "Other"
+  - name: tradeId
+    type: alpha-fixed
+    size: 25
+  - name: tradeMatchId
+    type: alpha-fixed
+    size: 25
+  - name: tradeHandlingInstructions
+    type: uint8
+    enums: { 0: "TradeConfirm", 1: "TwoPartyReport", 6: "OnePartyReport" }
+  - name: throttleAction
+    type: uint8
+    enums: { 2: "Rejected" }
+  - name: throttleNoMessages
+    type: uint32
+  - name: throttleTimeInterval
+    type: uint16
+  - name: throttleTimeUnit
+    type: uint8
+    enums: { 0: "Seconds" }
+  - name: throttleType
+    type: uint8
+    enums: { 0: "InboundRate" }
+  - name: typeOfService
+    type: uint8
+    enums: { 1: "OrderInput" }
+  - name: userName
+    type: alpha-fixed
+    size: 50
+  - name: userRequestId
+    type: alpha-fixed
+    size: 20
+  - name: userRequestType
+    type: uint8
+    enums: { 5: "RequestThrottleLimit" }

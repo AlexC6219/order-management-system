@@ -1,0 +1,427 @@
+# OCG-C Binary Protocol — Message definitions (field presence map bit positions)
+# Source: HKEX OCG-C Binary Trading Interface Specifications §7
+# Each entry maps a presence-map bit position to a field name from fields.yaml.
+version: 1
+
+messages:
+  - name: Heartbeat
+    type: 0
+    sender: both
+    fields:
+      - { bit: 0, field: referenceTestRequestId, required: false }
+
+  - name: TestRequest
+    type: 1
+    sender: both
+    fields:
+      - { bit: 0, field: testRequestId, required: true }
+
+  - name: ResendRequest
+    type: 2
+    sender: both
+    fields:
+      - { bit: 0, field: startSequence, required: true }
+      - { bit: 1, field: endSequence, required: true }
+
+  - name: Reject
+    type: 3
+    sender: server
+    fields:
+      - { bit: 0, field: messageRejectCode, required: true }
+      - { bit: 1, field: reason, required: false }
+      - { bit: 2, field: referenceMessageType, required: false }
+      - { bit: 3, field: referenceFieldName, required: false }
+      - { bit: 4, field: referenceSequenceNumber, required: true }
+      - { bit: 5, field: clientOrderId, required: false }
+
+  - name: SequenceReset
+    type: 4
+    sender: both
+    fields:
+      - { bit: 0, field: gapFill, required: false }
+      - { bit: 1, field: newSequenceNumber, required: true }
+
+  - name: Logon
+    type: 5
+    sender: both
+    fields:
+      - { bit: 0, field: password, required: false }
+      - { bit: 1, field: newPassword, required: false }
+      - { bit: 2, field: nextExpectedMessageSequence, required: true }
+      - { bit: 3, field: sessionStatus, required: false }
+      - { bit: 4, field: text, required: false }
+      - { bit: 5, field: testMessageIndicator, required: false }
+
+  - name: Logout
+    type: 6
+    sender: both
+    fields:
+      - { bit: 0, field: logoutText, required: false }
+      - { bit: 1, field: sessionStatus, required: false }
+
+  - name: LookupRequest
+    type: 7
+    sender: client
+    fields:
+      - { bit: 0, field: typeOfService, required: true }
+      - { bit: 1, field: protocolType, required: true }
+
+  - name: LookupResponse
+    type: 8
+    sender: server
+    fields:
+      - { bit: 0, field: status, required: true }
+      - { bit: 1, field: lookupRejectCode, required: false }
+      - { bit: 2, field: reason, required: false }
+      - { bit: 3, field: primaryIp, required: false }
+      - { bit: 4, field: primaryPort, required: false }
+      - { bit: 5, field: secondaryIp, required: false }
+      - { bit: 6, field: secondaryPort, required: false }
+
+  - name: BusinessMessageReject
+    type: 9
+    sender: server
+    fields:
+      - { bit: 0, field: businessRejectCode, required: true }
+      - { bit: 1, field: reason, required: false }
+      - { bit: 2, field: referenceMessageType, required: true }
+      - { bit: 3, field: referenceFieldName, required: false }
+      - { bit: 4, field: referenceSequenceNumber, required: false }
+      - { bit: 5, field: businessRejectReferenceId, required: false }
+
+  - name: ExecutionReport
+    type: 10
+    sender: server
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: true }
+      - { bit: 3, field: securityIdSource, required: true }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: true }
+      - { bit: 8, field: originalClientOrderId, required: false }
+      - { bit: 9, field: orderId, required: true }
+      - { bit: 10, field: owningBrokerId, required: false }
+      - { bit: 11, field: orderType, required: false }
+      - { bit: 12, field: price, required: false }
+      - { bit: 13, field: orderQuantity, required: false }
+      - { bit: 14, field: tif, required: false }
+      - { bit: 15, field: positionEffect, required: false }
+      - { bit: 16, field: orderRestrictions, required: false }
+      - { bit: 17, field: maxPriceLevels, required: false }
+      - { bit: 18, field: orderCapacity, required: false }
+      - { bit: 19, field: text, required: false }
+      - { bit: 20, field: reason, required: false }
+      - { bit: 21, field: executionId, required: true }
+      - { bit: 22, field: orderStatus, required: true }
+      - { bit: 23, field: execType, required: true }
+      - { bit: 24, field: cumulativeQuantity, required: true }
+      - { bit: 25, field: leavesQuantity, required: true }
+      - { bit: 26, field: orderRejectCode, required: false }
+      - { bit: 27, field: lotType, required: false }
+      - { bit: 28, field: execRestatementReason, required: false }
+      - { bit: 29, field: cancelRejectCode, required: false }
+      - { bit: 30, field: matchType, required: false }
+      - { bit: 31, field: counterpartyBrokerId, required: false }
+      - { bit: 32, field: executionQuantity, required: false }
+      - { bit: 33, field: executionPrice, required: false }
+      - { bit: 34, field: referenceExecutionId, required: false }
+      - { bit: 35, field: orderCategory, required: false }
+      - { bit: 36, field: amendRejectCode, required: false }
+      - { bit: 38, field: tradeMatchId, required: false }
+      - { bit: 39, field: exchangeTradeType, required: false }
+      - { bit: 42, field: aggressorIndicator, required: false }
+
+  - name: NewOrder
+    type: 11
+    sender: client
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: true }
+      - { bit: 3, field: securityIdSource, required: true }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: true }
+      - { bit: 8, field: orderType, required: true }
+      - { bit: 9, field: price, required: false }
+      - { bit: 10, field: orderQuantity, required: true }
+      - { bit: 11, field: tif, required: false }
+      - { bit: 12, field: positionEffect, required: false }
+      - { bit: 13, field: orderRestrictions, required: false }
+      - { bit: 14, field: maxPriceLevels, required: false }
+      - { bit: 15, field: orderCapacity, required: false }
+      - { bit: 16, field: text, required: false }
+      - { bit: 17, field: executionInstructions, required: false }
+      - { bit: 18, field: disclosureInstructions, required: true }
+      - { bit: 19, field: lotType, required: false }
+      - { bit: 22, field: submittingBcanField, required: false }
+
+  - name: AmendRequest
+    type: 12
+    sender: client
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: true }
+      - { bit: 3, field: securityIdSource, required: true }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: true }
+      - { bit: 8, field: originalClientOrderId, required: true }
+      - { bit: 9, field: orderId, required: false }
+      - { bit: 10, field: orderType, required: true }
+      - { bit: 11, field: price, required: false }
+      - { bit: 12, field: orderQuantity, required: true }
+      - { bit: 13, field: tif, required: false }
+      - { bit: 14, field: positionEffect, required: false }
+      - { bit: 15, field: orderRestrictions, required: false }
+      - { bit: 16, field: maxPriceLevels, required: false }
+      - { bit: 17, field: orderCapacity, required: false }
+      - { bit: 18, field: text, required: false }
+      - { bit: 19, field: executionInstructions, required: false }
+      - { bit: 20, field: disclosureInstructions, required: true }
+
+  - name: CancelRequest
+    type: 13
+    sender: client
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: true }
+      - { bit: 3, field: securityIdSource, required: true }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: true }
+      - { bit: 8, field: originalClientOrderId, required: true }
+      - { bit: 9, field: orderId, required: false }
+      - { bit: 10, field: text, required: false }
+
+  - name: MassCancelRequest
+    type: 14
+    sender: client
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: false }
+      - { bit: 3, field: securityIdSource, required: false }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: false }
+      - { bit: 8, field: massCancelRequestType, required: true }
+      - { bit: 9, field: marketSegmentId, required: false }
+
+  - name: OrderMassCancelReport
+    type: 15
+    sender: server
+    fields:
+      - { bit: 0, field: clientOrderId, required: false }
+      - { bit: 1, field: submittingBrokerId, required: false }
+      - { bit: 2, field: securityId, required: false }
+      - { bit: 3, field: securityIdSource, required: false }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: massCancelRequestType, required: true }
+      - { bit: 8, field: owningBrokerId, required: false }
+      - { bit: 9, field: massActionReportId, required: true }
+      - { bit: 10, field: massCancelResponse, required: true }
+      - { bit: 11, field: massCancelRejectCode, required: false }
+      - { bit: 12, field: reason, required: false }
+
+  - name: Quote
+    type: 16
+    sender: client
+    fields:
+      - { bit: 0, field: submittingBrokerId, required: true }
+      - { bit: 1, field: brokerLocationId, required: false }
+      - { bit: 2, field: securityId, required: true }
+      - { bit: 3, field: securityIdSource, required: true }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: quoteBidId, required: true }
+      - { bit: 6, field: quoteOfferId, required: true }
+      - { bit: 7, field: quoteType, required: false }
+      - { bit: 8, field: side, required: false }
+      - { bit: 9, field: bidSize, required: true }
+      - { bit: 10, field: offerSize, required: true }
+      - { bit: 11, field: bidPrice, required: true }
+      - { bit: 12, field: offerPrice, required: true }
+      - { bit: 13, field: transactionTime, required: true }
+      - { bit: 14, field: positionEffect, required: false }
+      - { bit: 15, field: orderRestrictions, required: false }
+      - { bit: 16, field: text, required: false }
+      - { bit: 17, field: executionInstructions, required: false }
+      - { bit: 18, field: submittingBcanField, required: true }
+
+  - name: QuoteCancel
+    type: 17
+    sender: client
+    fields:
+      - { bit: 0, field: submittingBrokerId, required: true }
+      - { bit: 1, field: brokerLocationId, required: false }
+      - { bit: 2, field: securityId, required: false }
+      - { bit: 3, field: securityIdSource, required: false }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: quoteMessageId, required: true }
+      - { bit: 6, field: quoteCancelType, required: true }
+
+  - name: QuoteStatusReport
+    type: 18
+    sender: server
+    fields:
+      - { bit: 0, field: submittingBrokerId, required: true }
+      - { bit: 1, field: brokerLocationId, required: false }
+      - { bit: 2, field: securityId, required: false }
+      - { bit: 3, field: securityIdSource, required: false }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: quoteBidId, required: false }
+      - { bit: 6, field: quoteOfferId, required: false }
+      - { bit: 7, field: quoteType, required: false }
+      - { bit: 8, field: transactionTime, required: true }
+      - { bit: 9, field: quoteMessageId, required: false }
+      - { bit: 10, field: quoteCancelType, required: false }
+      - { bit: 11, field: quoteStatus, required: false }
+      - { bit: 12, field: quoteRejectCode, required: false }
+      - { bit: 13, field: reason, required: false }
+
+  - name: TradeCaptureReport
+    type: 21
+    sender: both
+    fields:
+      - { bit: 0, field: tradeReportId, required: true }
+      - { bit: 1, field: tradeReportTransType, required: false }
+      - { bit: 2, field: tradeReportType, required: true }
+      - { bit: 3, field: tradeHandlingInstructions, required: false }
+      - { bit: 4, field: submittingBrokerId, required: true }
+      - { bit: 5, field: counterpartyBrokerId, required: false }
+      - { bit: 6, field: brokerLocationId, required: false }
+      - { bit: 7, field: securityId, required: true }
+      - { bit: 8, field: securityIdSource, required: true }
+      - { bit: 9, field: securityExchange, required: false }
+      - { bit: 10, field: side, required: true }
+      - { bit: 11, field: transactionTime, required: true }
+      - { bit: 12, field: tradeId, required: false }
+      - { bit: 13, field: tradeType, required: false }
+      - { bit: 14, field: executionQuantity, required: true }
+      - { bit: 15, field: executionPrice, required: true }
+      - { bit: 16, field: clearingInstruction, required: false }
+      - { bit: 17, field: positionEffect, required: false }
+      - { bit: 19, field: orderCapacity, required: false }
+      - { bit: 20, field: orderCategory, required: false }
+      - { bit: 21, field: text, required: false }
+      - { bit: 22, field: executionInstructions, required: false }
+      - { bit: 27, field: orderId, required: false }
+      - { bit: 29, field: submittingBcanField, required: false }
+      - { bit: 31, field: counterpartyBcanField, required: false }
+
+  - name: TradeCaptureReportAck
+    type: 22
+    sender: server
+    fields:
+      - { bit: 0, field: tradeReportId, required: true }
+      - { bit: 1, field: tradeReportTransType, required: false }
+      - { bit: 2, field: tradeReportType, required: true }
+      - { bit: 3, field: tradeHandlingInstructions, required: false }
+      - { bit: 4, field: submittingBrokerId, required: true }
+      - { bit: 5, field: counterpartyBrokerId, required: false }
+      - { bit: 6, field: brokerLocationId, required: false }
+      - { bit: 7, field: securityId, required: true }
+      - { bit: 8, field: securityIdSource, required: true }
+      - { bit: 9, field: securityExchange, required: false }
+      - { bit: 10, field: side, required: true }
+      - { bit: 11, field: transactionTime, required: true }
+      - { bit: 12, field: tradeId, required: false }
+      - { bit: 13, field: tradeReportStatus, required: false }
+      - { bit: 14, field: tradeReportRejectCode, required: false }
+      - { bit: 15, field: reason, required: false }
+
+  - name: ObOCancelRequest
+    type: 23
+    sender: client
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: true }
+      - { bit: 3, field: securityIdSource, required: true }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: true }
+      - { bit: 8, field: originalClientOrderId, required: false }
+      - { bit: 9, field: orderId, required: true }
+      - { bit: 10, field: owningBrokerId, required: true }
+      - { bit: 11, field: text, required: false }
+
+  - name: ObOMassCancelRequest
+    type: 24
+    sender: client
+    fields:
+      - { bit: 0, field: clientOrderId, required: true }
+      - { bit: 1, field: submittingBrokerId, required: true }
+      - { bit: 2, field: securityId, required: false }
+      - { bit: 3, field: securityIdSource, required: false }
+      - { bit: 4, field: securityExchange, required: false }
+      - { bit: 5, field: brokerLocationId, required: false }
+      - { bit: 6, field: transactionTime, required: true }
+      - { bit: 7, field: side, required: false }
+      - { bit: 8, field: massCancelRequestType, required: true }
+      - { bit: 9, field: marketSegmentId, required: false }
+      - { bit: 10, field: owningBrokerId, required: true }
+
+  - name: ThrottleEntitlementRequest
+    type: 25
+    sender: client
+    fields:
+      - { bit: 0, field: userRequestId, required: true }
+      - { bit: 1, field: userRequestType, required: true }
+      - { bit: 2, field: userName, required: true }
+
+  - name: ThrottleEntitlementResponse
+    type: 26
+    sender: server
+    fields:
+      - { bit: 0, field: userRequestId, required: true }
+      - { bit: 1, field: userName, required: true }
+    groups:
+      - countField: noThrottles
+        bit: 2
+        presenceMapField: noThrottlesPresenceMap
+        fields:
+          - { bit: 0, field: throttleAction, required: false }
+          - { bit: 1, field: throttleType, required: false }
+          - { bit: 2, field: throttleNoMessages, required: false }
+          - { bit: 3, field: throttleTimeInterval, required: false }
+          - { bit: 4, field: throttleTimeUnit, required: false }
+
+  - name: PartyEntitlementsRequest
+    type: 27
+    sender: client
+    fields:
+      - { bit: 0, field: entitlementRequestId, required: true }
+
+  - name: PartyEntitlementsReport
+    type: 28
+    sender: server
+    fields:
+      - { bit: 0, field: entitlementReportId, required: true }
+      - { bit: 1, field: entitlementRequestId, required: false }
+      - { bit: 2, field: requestResult, required: false }
+      - { bit: 3, field: totalNoPartyList, required: false }
+      - { bit: 4, field: lastFragment, required: false }
+      - { bit: 5, field: brokerId, required: false }
+    groups:
+      - countField: noEntitlements
+        bit: 6
+        presenceMapField: noEntitlementsPresenceMap
+        fields:
+          - { bit: 0, field: entitlementType, required: false }
+          - { bit: 1, field: entitlementIndicator, required: false }
+          - { bit: 2, field: noEntitlementAttributes, required: false }
+          - { bit: 3, field: entitlementId, required: true }
+          - { bit: 4, field: noInstrumentScopes, required: false }

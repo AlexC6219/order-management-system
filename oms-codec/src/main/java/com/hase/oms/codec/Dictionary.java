@@ -52,6 +52,14 @@ public final class Dictionary {
         return def;
     }
 
+    public java.util.Collection<FieldDef> allFields() {
+        return fields.values();
+    }
+
+    public java.util.Collection<MessageDef> allMessages() {
+        return messages.values();
+    }
+
     public static Dictionary load(InputStream fieldsYaml, InputStream messagesYaml) {
         Yaml yaml = new Yaml();
 

@@ -15,7 +15,19 @@ Protocol**.
 - Start with `README.md` (components), then `DESIGN.md` (architecture, field
   maps, codec/session/recovery rules). `OCGC spec.md` is the authoritative wire
   spec.
-- Status: design/early implementation. No production source tree yet.
+
+## Where we are — READ THIS FIRST
+
+- **Current phase:** Phase 1 — OCG-C Session. Phase 0 (codec) is done, 30 tests
+  green.
+- **Resume point:** read `PROGRESS.md` for live status, next actions, and open
+  questions **before doing anything else**.
+- **Plan / backlog:** Linear project *HKEX Connect Binary Trading OMS* (team
+  `ALE`). Treat Linear as the backlog; `PROGRESS.md` + git are the source of
+  truth for current state.
+- **At the end of every session:** update `PROGRESS.md`, ensure `mvn -q test` is
+  green, commit, and reflect status in Linear. See `PROGRESS.md` → "Session
+  discipline".
 
 ## Build & test
 

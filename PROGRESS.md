@@ -56,8 +56,18 @@ admin-only (not in the hot path).
     RSA test keypair, Lookup/Logon validation, sequence tracking, scripted
     Execution Report replay, fault hooks (reject, checksum corruption, disconnect,
     double-logon termination, mid-resend drops).
-  - **21 tests green** in `oms-session`: `SessionEngineTest(13)`, `PasswordCipherTest(2)`,
-    `LookupClientTest(2)`, `MockOcgSessionTest(4)`. Full reactor **51 tests green**.
+  - **21 tests green** in `oms-session` at first cut: `SessionEngineTest(13)`,
+    `PasswordCipherTest(2)`, `LookupClientTest(2)`, `MockOcgSessionTest(4)`.
+- **Phase 1 hardening** (same session, after review):
+  - `SessionEngine.onLogonReply` now classifies the Logon reply's `Session Status`
+    (`LogonStatus`); refused → `LOGON_REJECTED`, password change required →
+    `PASSWORD_CHANGE_REQUIRED`, due-to-expire accepted. New return type
+    `LogonOutcome`.
+  - Inbound **Comp ID validation**; bounded (1024) **execution-ID dedupe window**
+    replacing the single-value guard.
+  - **27 tests green** in `oms-session`: `SessionEngineTest(18)`,
+    `PasswordCipherTest(2)`, `LookupClientTest(2)`, `MockOcgSessionTest(5)`.
+    Full reactor **57 tests green**.
 - **Phase 0**: unchanged, 30 tests green.
 
 ### Deviations / notes
@@ -73,7 +83,7 @@ admin-only (not in the hot path).
 
 ## Next actions (start here)
 
-Phase 2 — Order flow. Parent: `ALE-9`. Build the order state machine, upstream
+Phase 2 — Order flow. Parent: `ALE-13`. Build the order state machine, upstream
 FIX acceptor (QuickFIX/J FIX 5.0 SP2), and FIX↔OCG-C mapping (DESIGN.md §8).
 
 - [ ] Order state machine (`PENDING_NEW → NEW → PARTIALLY_FILLED → FILLED`,
@@ -82,6 +92,8 @@ FIX acceptor (QuickFIX/J FIX 5.0 SP2), and FIX↔OCG-C mapping (DESIGN.md §8).
 - [ ] QuickFIX/J acceptor for the single GFIX session; `ClOrdID` intake
 - [ ] Mock GFIX client (initiator) for L3 tests
 - [ ] L3 integration: Mock GFIX → OMS → Mock OCG-C → fills → FIX
+- [ ] Agent-added items on `ALE-13` (`ALE-67`–`ALE-70`, `ALE-46` clarification) —
+      review before starting
 
 Acceptance bar: the `TEST_PLAN.md` L3 tests, driven by Mock GFIX + Mock OCG-C.
 
@@ -90,7 +102,7 @@ Acceptance bar: the `TEST_PLAN.md` L3 tests, driven by Mock GFIX + Mock OCG-C.
 ## Verify
 
 ```bash
-mvn -q test     # expect 51 tests green (30 codec + 21 session)
+mvn -q test     # expect 57 tests green (30 codec + 27 session)
 ```
 
 ---
@@ -111,12 +123,40 @@ mvn -q test     # expect 51 tests green (30 codec + 21 session)
 
 ---
 
+## Agent-added planning notes (pending review)
+
+Items proposed by the opencode agent, marked `agent-added` in Linear; revisit
+and ratify/trim when unfolding the relevant phase.
+
+- **Phase 1 (OCG-C Session, `ALE-8`)** — fixed immediately: `sessionStatus`
+  handling, Comp ID validation, bounded dedupe window. Logged as backlog
+  follow-ups: `ALE-74` resend-request coalescing, `ALE-75` checksum-failure
+  handling, `ALE-76` trading-day rollover.
+- **Phase 2 (Order Flow, `ALE-13`)** — `ALE-67` ingress ClOrdID dedupe, `ALE-68`
+  ingress field validation, `ALE-69` cumQty/leaves consistency check, `ALE-70`
+  QuickFIX/J persistent store; `ALE-46` extended with stale/superseded ER
+  handling + the "dedupe must not affect session sequence accounting" rule.
+- **Phase 5 (Queue Management, `ALE-15`)** — beyond the original MPS throttle /
+  ID chaining / in-flight exclusivity scope, added: `ALE-61` priority queue
+  (cancels before new), `ALE-62` bounded queue + backpressure, `ALE-63` adaptive
+  backoff on over-rate reject, `ALE-64` per-order causality + sequence
+  reservation, `ALE-65` in-flight timeout + reconciliation, `ALE-66` staleness/
+  expiry. Deferred notes: WAL-backed queue (Phase 6), circuit breaker (Phase 7),
+  dead-letter + fair queueing (Phase 8).
+- **Phase 6 (Persistence, `ALE-10`)** — `ALE-73` persist & restore session
+  sequence numbers across restart.
+- **Phase 7 (Failover, `ALE-9`)** — `ALE-71` reconnect backoff + jitter, `ALE-72`
+  monotonic clock for timers.
+
+---
+
 ## Linear
 
 Project: **HKEX Connect Binary Trading OMS** — team `ALE`.
 Phase parents: `ALE-5` (Docs), `ALE-6` (Phase 0) … `ALE-12` (Phase 9), `ALE-7`
-(Testing). Test layers under `ALE-7`. Treat Linear as the **backlog**; this file
-+ git are the **source of truth for current state**.
+(Testing). Test layers under `ALE-7`. Label `agent-added` marks agent-proposed
+scope. Treat Linear as the **backlog**; this file + git are the **source of
+truth for current state**.
 
 ---
 

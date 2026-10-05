@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -137,11 +138,42 @@ class MockOcgSessionTest {
             sent.clear();
 
             Message reply = readFrame(in);
-            LogonReconciliation outcome = engine.onLogonReply(reply, 1);
+            LogonOutcome outcome = engine.onLogonReply(reply, 1);
 
-            assertEquals(LogonReconciliation.IN_SYNC, outcome);
+            assertTrue(outcome.accepted());
+            assertEquals(LogonReconciliation.IN_SYNC, outcome.reconciliation());
             assertEquals(SessionState.ACTIVE, engine.state());
             assertTrue(server.received().stream().anyMatch(m -> m.messageType() == MsgTypes.LOGON));
+        }
+    }
+
+    @Test
+    void engineTerminatesOnRejectedLogonAgainstMock() throws Exception {
+        server.setRejectLogon(true);
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(server.host(), server.port()));
+            DataOutputStream out = new DataOutputStream(socket.getOutputStream());
+            DataInputStream in = new DataInputStream(socket.getInputStream());
+
+            List<byte[]> sent = new ArrayList<>();
+            SessionConfig config = new SessionConfig().compId("TEST");
+            SessionEngine engine = new SessionEngine(dict, config, Clock.systemUTC(), sent::add);
+            engine.onConnected();
+
+            PasswordCipher cipher = new PasswordCipher(server.keyPair().getPublic());
+            engine.sendLogon(cipher.encrypt("Password1"));
+            for (byte[] frame : sent) {
+                out.writeInt(frame.length);
+                out.write(frame);
+            }
+            out.flush();
+
+            Message reply = readFrame(in);
+            LogonOutcome outcome = engine.onLogonReply(reply, 1);
+
+            assertFalse(outcome.accepted());
+            assertEquals(SessionState.TERMINATED, engine.state());
+            assertEquals(SessionTermination.LOGON_REJECTED, engine.termination());
         }
     }
 }

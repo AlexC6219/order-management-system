@@ -79,9 +79,10 @@ class SessionEngineTest {
         assertEquals(SessionState.LOGGING_IN, engine.state());
 
         Message reply = new Message(MsgTypes.LOGON).sequenceNumber(0).put("sessionStatus", 0L);
-        LogonReconciliation outcome = engine.onLogonReply(reply, 1);
+        LogonOutcome outcome = engine.onLogonReply(reply, 1);
 
-        assertEquals(LogonReconciliation.IN_SYNC, outcome);
+        assertTrue(outcome.accepted());
+        assertEquals(LogonReconciliation.IN_SYNC, outcome.reconciliation());
         assertEquals(SessionState.ACTIVE, engine.state());
     }
 
@@ -94,9 +95,9 @@ class SessionEngineTest {
 
         engine.onConnected();
         Message reply = new Message(MsgTypes.LOGON).sequenceNumber(0).put("sessionStatus", 0L);
-        LogonReconciliation outcome = engine.onLogonReply(reply, 1);
+        LogonOutcome outcome = engine.onLogonReply(reply, 1);
 
-        assertEquals(LogonReconciliation.CLIENT_AHEAD, outcome);
+        assertEquals(LogonReconciliation.CLIENT_AHEAD, outcome.reconciliation());
         assertEquals(SessionState.TERMINATED, engine.state());
         assertEquals(SessionTermination.SEQUENCE_AHEAD_MANUAL_INTERVENTION, engine.termination());
     }
@@ -110,9 +111,9 @@ class SessionEngineTest {
 
         engine.onConnected();
         Message reply = new Message(MsgTypes.LOGON).sequenceNumber(0).put("sessionStatus", 0L);
-        LogonReconciliation outcome = engine.onLogonReply(reply, 10);
+        LogonOutcome outcome = engine.onLogonReply(reply, 10);
 
-        assertEquals(LogonReconciliation.CLIENT_BEHIND, outcome);
+        assertEquals(LogonReconciliation.CLIENT_BEHIND, outcome.reconciliation());
         assertTrue(engine.isResendInProgress());
         assertEquals(5L, engine.resendRequestsIssued().get(0));
     }
@@ -234,6 +235,78 @@ class SessionEngineTest {
         engine.onLogoutReply(new Message(MsgTypes.LOGOUT).sequenceNumber(1));
         assertEquals(SessionState.TERMINATED, engine.state());
         assertEquals(SessionTermination.LOGOUT, engine.termination());
+    }
+
+    @Test
+    void logonRejectedStatusTerminates() {
+        MutableClock clock = new MutableClock();
+        List<byte[]> out = new ArrayList<>();
+        SessionEngine engine = engine(clock, out);
+        engine.onConnected();
+
+        Message reply = new Message(MsgTypes.LOGON).sequenceNumber(0).put("sessionStatus", 5L);
+        LogonOutcome outcome = engine.onLogonReply(reply, 1);
+
+        assertFalse(outcome.accepted());
+        assertEquals(SessionState.TERMINATED, engine.state());
+        assertEquals(SessionTermination.LOGON_REJECTED, engine.termination());
+    }
+
+    @Test
+    void logonPasswordChangeRequiredTerminates() {
+        MutableClock clock = new MutableClock();
+        List<byte[]> out = new ArrayList<>();
+        SessionEngine engine = engine(clock, out);
+        engine.onConnected();
+
+        Message reply = new Message(MsgTypes.LOGON).sequenceNumber(0).put("sessionStatus", 100L);
+        LogonOutcome outcome = engine.onLogonReply(reply, 1);
+
+        assertFalse(outcome.accepted());
+        assertTrue(outcome.passwordChangeRequired());
+        assertEquals(SessionState.TERMINATED, engine.state());
+        assertEquals(SessionTermination.PASSWORD_CHANGE_REQUIRED, engine.termination());
+    }
+
+    @Test
+    void logonPasswordDueToExpireStillAccepted() {
+        MutableClock clock = new MutableClock();
+        List<byte[]> out = new ArrayList<>();
+        SessionEngine engine = engine(clock, out);
+        engine.onConnected();
+
+        Message reply = new Message(MsgTypes.LOGON).sequenceNumber(0).put("sessionStatus", 2L);
+        LogonOutcome outcome = engine.onLogonReply(reply, 1);
+
+        assertTrue(outcome.accepted());
+        assertEquals(SessionState.ACTIVE, engine.state());
+    }
+
+    @Test
+    void inboundWrongCompIdDropped() {
+        MutableClock clock = new MutableClock();
+        List<byte[]> out = new ArrayList<>();
+        SessionEngine engine = engine(clock, out);
+
+        Message hb = new Message(MsgTypes.HEARTBEAT).sequenceNumber(1).compId("OTHER");
+        assertFalse(engine.onMessage(hb));
+    }
+
+    @Test
+    void interleavedDuplicateExecutionDeduped() {
+        MutableClock clock = new MutableClock();
+        List<byte[]> out = new ArrayList<>();
+        SessionEngine engine = engine(clock, out);
+        engine.onConnected();
+        engine.onLogonReply(new Message(MsgTypes.LOGON).sequenceNumber(0), 1);
+
+        engine.onMessage(new Message(MsgTypes.EXECUTION_REPORT).sequenceNumber(1).put("executionId", "E1"));
+        engine.onMessage(new Message(MsgTypes.EXECUTION_REPORT).sequenceNumber(2).put("executionId", "E2"));
+
+        // Replay E1 after E2 was seen: the bounded window still detects it.
+        Message replay = new Message(MsgTypes.EXECUTION_REPORT).sequenceNumber(1).possDup(1)
+                .put("executionId", "E1");
+        assertFalse(engine.onMessage(replay));
     }
 
     @Test

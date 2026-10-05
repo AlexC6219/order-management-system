@@ -5,7 +5,10 @@ import com.hase.oms.codec.Message;
 
 import java.time.Clock;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
@@ -42,7 +45,10 @@ public final class SessionEngine {
     private boolean resendInProgress;
     private long resendFrom;
     private long resendTo;
-    private String lastExecutionId;
+
+    /** Bounded, most-recently-seen Execution IDs for PossDup/PossResend dedupe. */
+    private final Set<String> seenExecutionIds = new LinkedHashSet<>();
+    private static final int DEDUPE_WINDOW = 1024;
 
     public SessionEngine(Dictionary dict, SessionConfig config, Clock clock, Consumer<byte[]> sink) {
         this.dict = dict;
@@ -94,26 +100,39 @@ public final class SessionEngine {
     }
 
     /**
-     * Handles a Logon reply. Returns the reconciliation outcome. On
-     * CLIENT_AHEAD the session is terminated; otherwise it becomes ACTIVE.
+     * Handles a Logon reply. Inspects {@code sessionStatus} first: a refused or
+     * password-change-required status terminates the session and is never treated
+     * as active. On an accepted status the sequence reconciliation is applied.
      *
      * <p>The peer's Next To Send is not carried in the Logon reply itself; the
      * caller supplies it (in production it is the peer sequence from the
      * gateway's session state, in tests it is set explicitly).
      */
-    public LogonReconciliation onLogonReply(Message reply, long peerNextToSend) {
+    public LogonOutcome onLogonReply(Message reply, long peerNextToSend) {
+        long status = number(reply.get("sessionStatus"));
+        LogonStatus disposition = LogonStatus.of(status);
+
+        if (disposition == LogonStatus.NEW_PASSWORD_REQUIRED) {
+            terminate(SessionTermination.PASSWORD_CHANGE_REQUIRED);
+            return new LogonOutcome(false, status, true, null);
+        }
+        if (!disposition.accepted()) {
+            terminate(SessionTermination.LOGON_REJECTED);
+            return new LogonOutcome(false, status, false, null);
+        }
+
         LogonReconciliation outcome =
                 LogonReconciliation.of(sequence.nextExpected(), peerNextToSend);
         if (outcome == LogonReconciliation.CLIENT_AHEAD) {
             terminate(SessionTermination.SEQUENCE_AHEAD_MANUAL_INTERVENTION);
-            return outcome;
+            return new LogonOutcome(true, status, false, outcome);
         }
         state = SessionState.ACTIVE;
         lastActivityMillis = clock.millis();
         if (outcome == LogonReconciliation.CLIENT_BEHIND) {
             beginResend(sequence.nextExpected(), peerNextToSend - 1);
         }
-        return outcome;
+        return new LogonOutcome(true, status, false, outcome);
     }
 
     // ---- heartbeat ladder ----
@@ -173,6 +192,13 @@ public final class SessionEngine {
     public boolean onMessage(Message inbound) {
         int type = inbound.messageType();
         long seq = inbound.sequenceNumber();
+
+        // Reject frames addressed to a different Comp ID when both are known.
+        String inboundCompId = inbound.compId();
+        if (!inboundCompId.isEmpty() && !config.compId().isEmpty()
+                && !inboundCompId.equals(config.compId())) {
+            return false;
+        }
 
         // Administrative session traffic bypasses gap checking.
         if (GapFillSkipList.shouldSkip(type) && type != MsgTypes.SEQUENCE_RESET) {
@@ -305,13 +331,21 @@ public final class SessionEngine {
         if (execId == null) {
             return false;
         }
-        return String.valueOf(execId).equals(lastExecutionId);
+        return seenExecutionIds.contains(String.valueOf(execId));
     }
 
     private void recordExecution(Message m) {
         Object execId = m.get("executionId");
-        if (execId != null) {
-            lastExecutionId = String.valueOf(execId);
+        if (execId == null) {
+            return;
+        }
+        String id = String.valueOf(execId);
+        seenExecutionIds.remove(id);   // re-insert to mark as most recent
+        seenExecutionIds.add(id);
+        if (seenExecutionIds.size() > DEDUPE_WINDOW) {
+            Iterator<String> oldest = seenExecutionIds.iterator();
+            oldest.next();
+            oldest.remove();
         }
     }
 

@@ -1,10 +1,9 @@
-package com.hase.oms.session.mock;
+package com.hase.oms.harness.mock;
 
 import com.hase.oms.codec.Dictionary;
 import com.hase.oms.codec.Message;
 import com.hase.oms.codec.MessageCodec;
-import com.hase.oms.session.MsgTypes;
-import com.hase.oms.session.PasswordCipher;
+import com.hase.oms.harness.MsgCodes;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
@@ -13,12 +12,12 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.PrivateKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.Base64;
@@ -37,11 +36,18 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * <p>Framing on the wire is a 4-byte big-endian length prefix followed by the
  * OCG-C frame. This keeps the mock transport-independent from the protocol's own
  * {@code Length} field, whose exact convention is still open (PROGRESS.md).
+ *
+ * <p>Lives in {@code oms-test-harness} and depends only on {@code oms-codec} so
+ * every later phase can reuse it without a module cycle.
  */
 public final class MockOcgServer implements AutoCloseable {
 
+    /** Must match the OCG-C Logon OAEP parameters used by the client. */
+    private static final String OAEP_DIGEST = "SHA-256";
+    private static final String MGF1_DIGEST = "SHA-256";
+
     private final Dictionary dict;
-    private final KeyPair keyPair = PasswordCipher.generateKeyPair();
+    private final KeyPair keyPair = generateKeyPair();
     private final List<Message> received = new CopyOnWriteArrayList<>();
 
     private ServerSocket serverSocket;
@@ -149,12 +155,12 @@ public final class MockOcgServer implements AutoCloseable {
                 Message msg = readFrame(in);
                 received.add(msg);
 
-                if (msg.messageType() == MsgTypes.LOOKUP_REQUEST) {
+                if (msg.messageType() == MsgCodes.LOOKUP_REQUEST) {
                     send(out, buildLookupResponse());
                     continue;
                 }
 
-                if (msg.messageType() == MsgTypes.LOGON) {
+                if (msg.messageType() == MsgCodes.LOGON) {
                     if (terminateOnSecondLogon && loggedOn) {
                         close();
                         return;
@@ -167,18 +173,18 @@ public final class MockOcgServer implements AutoCloseable {
                     continue;
                 }
 
-                if (msg.messageType() == MsgTypes.LOGOUT) {
-                    send(out, message(MsgTypes.LOGOUT, "sessionStatus", 4L));
+                if (msg.messageType() == MsgCodes.LOGOUT) {
+                    send(out, message(MsgCodes.LOGOUT, "sessionStatus", 4L));
                     return;
                 }
 
-                if (msg.messageType() == MsgTypes.RESEND_REQUEST) {
+                if (msg.messageType() == MsgCodes.RESEND_REQUEST) {
                     handleResend(msg, out);
                     continue;
                 }
 
-                if (MsgTypes.HEARTBEAT == msg.messageType()
-                        || MsgTypes.TEST_REQUEST == msg.messageType()) {
+                if (MsgCodes.HEARTBEAT == msg.messageType()
+                        || MsgCodes.TEST_REQUEST == msg.messageType()) {
                     nextExpected = Math.max(nextExpected, msg.sequenceNumber() + 1);
                 }
             }
@@ -192,7 +198,7 @@ public final class MockOcgServer implements AutoCloseable {
     // ---- lookups & logon ----
 
     private Message buildLookupResponse() {
-        return message(MsgTypes.LOOKUP_RESPONSE, "status", 0L,
+        return message(MsgCodes.LOOKUP_RESPONSE, "status", 0L,
                 "primaryIp", advertiseIp,
                 "primaryPort", (long) advertisePort,
                 "secondaryIp", advertiseIp,
@@ -203,14 +209,14 @@ public final class MockOcgServer implements AutoCloseable {
         long clientNextExpected = number(logon.get("nextExpectedMessageSequence"));
 
         if (rejectLogon) {
-            return message(MsgTypes.LOGON, "sessionStatus", 5L, "text", "invalid");
+            return message(MsgCodes.LOGON, "sessionStatus", 5L, "text", "invalid");
         }
         String provided = decryptPassword(String.valueOf(logon.get("password")));
         if (!provided.endsWith(expectedPassword)) {
-            return message(MsgTypes.LOGON, "sessionStatus", 5L, "text", "invalid");
+            return message(MsgCodes.LOGON, "sessionStatus", 5L, "text", "invalid");
         }
 
-        Message reply = message(MsgTypes.LOGON, "sessionStatus", 0L);
+        Message reply = message(MsgCodes.LOGON, "sessionStatus", 0L);
         if (clientNextExpected < nextToSend) {
             // Client behind: peer will gap-fill from the client's next expected.
             globalResendStart = (int) clientNextExpected;
@@ -225,8 +231,7 @@ public final class MockOcgServer implements AutoCloseable {
             byte[] ciphertext = Base64.getDecoder().decode(base64Ciphertext);
             Cipher cipher = Cipher.getInstance("RSA/ECB/OAEPPadding");
             OAEPParameterSpec spec = new OAEPParameterSpec(
-                    PasswordCipher.OAEP_DIGEST, "MGF1",
-                    new MGF1ParameterSpec(PasswordCipher.MGF1_DIGEST),
+                    OAEP_DIGEST, "MGF1", new MGF1ParameterSpec(MGF1_DIGEST),
                     PSource.PSpecified.DEFAULT);
             PrivateKey privateKey = keyPair.getPrivate();
             cipher.init(Cipher.DECRYPT_MODE, privateKey, spec);
@@ -267,7 +272,7 @@ public final class MockOcgServer implements AutoCloseable {
 
     /** Builds a minimal Execution Report used by scripted replay. */
     public Message executionReport(long seq) {
-        return new Message(MsgTypes.EXECUTION_REPORT)
+        return new Message(MsgCodes.EXECUTION_REPORT)
                 .sequenceNumber(seq)
                 .compId(compId)
                 .put("clientOrderId", "1")
@@ -290,9 +295,6 @@ public final class MockOcgServer implements AutoCloseable {
         int len = in.readInt();
         byte[] frame = new byte[len];
         in.readFully(frame);
-        if (corruptNextReplyChecksum) {
-            // Caller requested corruption of an inbound frame.
-        }
         return MessageCodec.decode(dict, frame);
     }
 
@@ -317,6 +319,16 @@ public final class MockOcgServer implements AutoCloseable {
 
     private static long number(Object value) {
         return value == null ? 0L : ((Number) value).longValue();
+    }
+
+    private static KeyPair generateKeyPair() {
+        try {
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            generator.initialize(2048);
+            return generator.generateKeyPair();
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Unable to generate RSA keypair", e);
+        }
     }
 
     @Override

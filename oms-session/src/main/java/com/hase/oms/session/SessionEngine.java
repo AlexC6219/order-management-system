@@ -32,6 +32,7 @@ public final class SessionEngine {
     private final SessionConfig config;
     private final Clock clock;
     private final Consumer<byte[]> sink;
+    private Consumer<Message> inboundHandler;
     private final SequenceTracker sequence = new SequenceTracker();
     private final SessionMessages messages;
     private final List<Message> pending = new ArrayList<>();
@@ -76,6 +77,25 @@ public final class SessionEngine {
 
     public int testRequestCount() {
         return (int) currentTestRequestId;
+    }
+
+    /**
+     * Registers the handler for inbound business messages (Execution Reports,
+     * rejects, mass-cancel reports). Session-management messages are consumed
+     * internally and never reach it.
+     */
+    public void setInboundHandler(Consumer<Message> handler) {
+        this.inboundHandler = handler;
+    }
+
+    /**
+     * Assigns the next outbound sequence number, stamps the Comp ID, and sends a
+     * business message through the session. Returns the allocated sequence.
+     */
+    public long send(Message message) {
+        message.sequenceNumber(sequence.allocateOutbound()).compId(config.compId());
+        dispatch(message);
+        return message.sequenceNumber();
     }
 
     // ---- lifecycle ----
@@ -262,6 +282,15 @@ public final class SessionEngine {
         if (type == MsgTypes.EXECUTION_REPORT) {
             recordExecution(inbound);
         }
+        if (!isSessionManagement(type) && inboundHandler != null) {
+            inboundHandler.accept(inbound);
+        }
+    }
+
+    private static boolean isSessionManagement(int type) {
+        return type == MsgTypes.TEST_REQUEST || type == MsgTypes.HEARTBEAT
+                || type == MsgTypes.LOGON || type == MsgTypes.LOGOUT
+                || type == MsgTypes.RESEND_REQUEST || type == MsgTypes.SEQUENCE_RESET;
     }
 
     // ---- resend ----

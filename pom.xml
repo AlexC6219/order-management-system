@@ -14,7 +14,10 @@
     <modules>
         <module>codegen</module>
         <module>oms-codec</module>
+        <module>oms-test-harness</module>
         <module>oms-session</module>
+        <module>oms-order</module>
+        <module>oms-fix</module>
     </modules>
 
     <properties>
@@ -22,6 +25,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <junit.version>5.10.2</junit.version>
         <snakeyaml.version>2.2</snakeyaml.version>
+        <quickfixj.version>2.3.1</quickfixj.version>
     </properties>
 
     <dependencyManagement>
@@ -35,6 +39,11 @@
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter</artifactId>
                 <version>${junit.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.quickfixj</groupId>
+                <artifactId>quickfixj-core</artifactId>
+                <version>${quickfixj.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

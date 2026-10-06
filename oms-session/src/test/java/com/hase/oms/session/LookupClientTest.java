@@ -2,7 +2,7 @@ package com.hase.oms.session;
 
 import com.hase.oms.codec.Dictionary;
 import com.hase.oms.codec.Message;
-import com.hase.oms.session.mock.MockOcgServer;
+import com.hase.oms.harness.mock.MockOcgServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

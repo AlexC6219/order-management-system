@@ -10,7 +10,7 @@ _Last updated: 2026-10-05_
 
 ## Current phase
 
-**Phase 2 — Order Flow** (next up). Phase 1 (OCG-C Session) is complete.
+**Phase 3 — Reference Data** (next up). Phase 2 (Order Flow) is complete.
 
 ---
 
@@ -19,9 +19,9 @@ _Last updated: 2026-10-05_
 | Phase | Scope | State |
 | --- | --- | --- |
 | 0 | OCG-C binary codec + dictionary + codegen | ✅ **done** (30 tests green) |
-| 1 | Session state machine (Lookup/Logon/heartbeat/sequence/recovery) + Mock OCG-C | ✅ **done** (21 tests green) |
-| 2 | Order flow (order state machine, QuickFIX/J FIX 5.0 SP2, FIX↔OCG-C mapping) | ⏳ **next** |
-| 3 | Reference data (OMD-C client, phase-aware cache) | todo |
+| 1 | Session state machine (Lookup/Logon/heartbeat/sequence/recovery) + Mock OCG-C | ✅ **done** (28 tests green) |
+| 2 | Order flow (order state machine, QuickFIX/J FIX 5.0 SP2, FIX↔OCG-C mapping) | ✅ **done** (41 tests green) |
+| 3 | Reference data (OMD-C client, phase-aware cache) | ⏳ **next** |
 | 4 | Pre-trade risk (price check) | todo |
 | 5 | Queue management (throttle, ID chaining, in-flight exclusivity) | todo |
 | 6 | Persistence (Chronicle WAL + Postgres) | todo |
@@ -43,66 +43,67 @@ admin-only (not in the hot path).
 
 ## Last session's work
 
-- **Phase 1 session** built and tested in new module `oms-session`:
-  - `SequenceTracker`, `LogonReconciliation`, `SessionState`/`SessionTermination`.
-  - `LookupClient` (preference-ordered endpoints, 5s retry, cycling; seq 1).
-  - `PasswordCipher` — JDK-native RSA-2048/OAEP (SHA-256 digest + MGF1), UTC
-    `YYYYMMDDHHMMSS` prefix, big-endian, base-64. No BouncyCastle.
-  - `SessionEngine` — heartbeat ladder (20s / 3 intervals / ~3 more), Logon
-    reconciliation N>S / N==S / N<S, gap detection + queued out-of-order drain,
-    Resend Request (single/range/all-after), gap-fill skip list, PossDup/
-    PossResend dedupe by Execution ID, Sequence Reset, Logout.
-  - `MockOcgServer` (test scope) — TCP server on the codegen'd codec, self-generated
-    RSA test keypair, Lookup/Logon validation, sequence tracking, scripted
-    Execution Report replay, fault hooks (reject, checksum corruption, disconnect,
-    double-logon termination, mid-resend drops).
-  - **21 tests green** in `oms-session` at first cut: `SessionEngineTest(13)`,
-    `PasswordCipherTest(2)`, `LookupClientTest(2)`, `MockOcgSessionTest(4)`.
-- **Phase 1 hardening** (same session, after review):
-  - `SessionEngine.onLogonReply` now classifies the Logon reply's `Session Status`
-    (`LogonStatus`); refused → `LOGON_REJECTED`, password change required →
-    `PASSWORD_CHANGE_REQUIRED`, due-to-expire accepted. New return type
-    `LogonOutcome`.
-  - Inbound **Comp ID validation**; bounded (1024) **execution-ID dedupe window**
-    replacing the single-value guard.
-  - **27 tests green** in `oms-session`: `SessionEngineTest(18)`,
-    `PasswordCipherTest(2)`, `LookupClientTest(2)`, `MockOcgSessionTest(5)`.
-    Full reactor **57 tests green**.
+- **Phase 2 order flow** built and tested across new modules:
+  - `oms-test-harness` — `MockOcgServer` promoted out of `oms-session` test scope
+    (depends only on `oms-codec`; no module cycle) so later phases can reuse it.
+  - `oms-order` (pure domain, no QuickFIX):
+    - `OrderState`, `OrderEvent`, `Order`, `OrderStateMachine` (terminal-state
+      protection; Trade Cancel on `FILLED` busts but does **not** reinstate
+      leaves).
+    - `ClientOrderIdAllocator` (1..99,999,999, daily reset), `OrderRepository`,
+      `OrderChain` aliasing.
+    - `IngressValidator` (DESIGN §6.4), upstream-ClOrdID dedupe,
+      `ExecutionConsistency` (`leaves = qty − cum`).
+    - `ExecTypeMapper` (OCG Exec Type → internal event), `OrderTranslator`
+      (New/Amend/Cancel/MassCancel build + ER decode), `TransactionTime`.
+    - `OrderManager` orchestrator (submit/amend/cancel/massCancel, ER
+      reconciliation with Exec-ID dedupe).
+  - `oms-fix` (QuickFIX/J 2.3.1):
+    - `FixMapping` — FIX 5.0 SP2 ↔ internal, `OrderCancelReject (9)` synthesis
+      from `'X'`/`'Y'`.
+    - `FixOrderApplication` (QuickFIX `Application`), `FixAcceptor`.
+    - **L3 integration** `FixOrderFlowL3Test`: live Mock GFIX (QuickFIX/J
+      initiator) → OMS acceptor → OCG-C New Order → Execution Report → FIX.
+  - `oms-session` — `SessionEngine.send(Message)` + `setInboundHandler` for the
+    business-message path.
+  - **99 tests green** (30 codec + 28 session + 34 order + 7 fix).
+- **Phase 1** (prior session): session state machine + Mock OCG-C; hardening
+  (`sessionStatus`, Comp ID validation, bounded dedupe) — 28 tests.
 - **Phase 0**: unchanged, 30 tests green.
 
 ### Deviations / notes
 
-- Transport framing between client and mock uses a 4-byte length prefix,
-  independent of the OCG-C `Length` field, whose exact convention remains open.
-  The mock and client agree, so Phase 1 is unaffected.
-- `onLogonReply` takes the peer's Next To Send explicitly (it is not carried in
-  the Logon reply wire format); the engine infers it when the reply arrives via
-  `onMessage`.
+- `oms-order` stays free of QuickFIX; all FIX handling lives in `oms-fix`.
+- Optional repeating (`multi`) OCG-C fields (`executionInstructions`,
+  `orderRestrictions`) are deliberately omitted in v1 (codec group support is
+  separate work).
+- `ALE-70` (QuickFIX persistent store) deferred to Phase 6 per decision D17.
+- Mock GFIX currently lives in `oms-fix` test scope; may move to
+  `oms-test-harness` when Phase 3 needs it.
 
 ---
 
 ## Next actions (start here)
 
-Phase 2 — Order flow. Parent: `ALE-13`. Build the order state machine, upstream
-FIX acceptor (QuickFIX/J FIX 5.0 SP2), and FIX↔OCG-C mapping (DESIGN.md §8).
+Phase 3 — Reference data. Parent: `ALE-14`. OMD-C client + phase-aware
+Reference/Price/State cache (DESIGN.md §5; UR.md §5). No HKEX dependency.
 
-- [ ] Order state machine (`PENDING_NEW → NEW → PARTIALLY_FILLED → FILLED`,
-      amend/cancel transients) + repository/ID allocator
-- [ ] Exec Type → FIX 5.0 SP2 mapping; `OrderCancelReject (9)` synthesis
-- [ ] QuickFIX/J acceptor for the single GFIX session; `ClOrdID` intake
-- [ ] Mock GFIX client (initiator) for L3 tests
-- [ ] L3 integration: Mock GFIX → OMS → Mock OCG-C → fills → FIX
-- [ ] Agent-added items on `ALE-13` (`ALE-67`–`ALE-70`, `ALE-46` clarification) —
-      review before starting
+- [ ] OMD-C message decode (shared codegen) for Security Definition, Reference
+      Price, VCM Trigger, Closing Price, Trading Session Status, Security Status
+- [ ] Phase-aware cache: per-security `{spread_table, reference_price, band,
+      vcm_state, trading_phase}`
+- [ ] Static spread-table fallback file
+- [ ] Mock OMD-C publisher + phase-transition scenarios
+- [ ] L4 preparation fixtures
 
-Acceptance bar: the `TEST_PLAN.md` L3 tests, driven by Mock GFIX + Mock OCG-C.
+Acceptance bar: the `TEST_PLAN.md` L4 inputs (Phase 4 consumes this cache).
 
 ---
 
 ## Verify
 
 ```bash
-mvn -q test     # expect 57 tests green (30 codec + 27 session)
+mvn -q test     # expect 99 tests green (30 codec + 28 session + 34 order + 7 fix)
 ```
 
 ---
@@ -132,10 +133,10 @@ and ratify/trim when unfolding the relevant phase.
   handling, Comp ID validation, bounded dedupe window. Logged as backlog
   follow-ups: `ALE-74` resend-request coalescing, `ALE-75` checksum-failure
   handling, `ALE-76` trading-day rollover.
-- **Phase 2 (Order Flow, `ALE-13`)** — `ALE-67` ingress ClOrdID dedupe, `ALE-68`
-  ingress field validation, `ALE-69` cumQty/leaves consistency check, `ALE-70`
-  QuickFIX/J persistent store; `ALE-46` extended with stale/superseded ER
-  handling + the "dedupe must not affect session sequence accounting" rule.
+- **Phase 2 (Order Flow, `ALE-13`)** — implemented in this session: `ALE-67`
+  ingress ClOrdID dedupe, `ALE-68` ingress field validation, `ALE-69`
+  cumQty/leaves consistency check, `ALE-46` stale/superseded ER handling +
+  layering rule. `ALE-70` (QuickFIX/J persistent store) deferred to Phase 6 (D17).
 - **Phase 5 (Queue Management, `ALE-15`)** — beyond the original MPS throttle /
   ID chaining / in-flight exclusivity scope, added: `ALE-61` priority queue
   (cancels before new), `ALE-62` bounded queue + backpressure, `ALE-63` adaptive

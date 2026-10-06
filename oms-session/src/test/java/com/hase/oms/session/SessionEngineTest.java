@@ -310,6 +310,24 @@ class SessionEngineTest {
     }
 
     @Test
+    void sendAllocatesSequenceAndBusinessMessagesReachInboundHandler() {
+        MutableClock clock = new MutableClock();
+        List<byte[]> out = new ArrayList<>();
+        SessionEngine engine = engine(clock, out);
+        engine.onConnected();
+        engine.onLogonReply(new Message(MsgTypes.LOGON).sequenceNumber(0), 1);
+
+        long seq = engine.send(new Message(MsgTypes.EXECUTION_REPORT).put("executionId", "E1"));
+        assertEquals(1L, seq);
+        assertEquals(2L, engine.sequence().nextToSend());
+
+        List<Message> received = new ArrayList<>();
+        engine.setInboundHandler(received::add);
+        engine.onMessage(new Message(MsgTypes.EXECUTION_REPORT).sequenceNumber(1).put("executionId", "E1"));
+        assertEquals(1, received.size());
+    }
+
+    @Test
     void gapFillSkipListIncludesSessionMessages() {
         assertTrue(GapFillSkipList.shouldSkip(MsgTypes.LOGON));
         assertTrue(GapFillSkipList.shouldSkip(MsgTypes.HEARTBEAT));

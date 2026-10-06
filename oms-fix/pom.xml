@@ -10,8 +10,8 @@
         <version>0.1.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>oms-session</artifactId>
-    <name>oms-session</name>
+    <artifactId>oms-fix</artifactId>
+    <name>oms-fix</name>
 
     <dependencies>
         <dependency>
@@ -21,13 +21,22 @@
         </dependency>
         <dependency>
             <groupId>com.hase.oms</groupId>
-            <artifactId>oms-test-harness</artifactId>
+            <artifactId>oms-order</artifactId>
             <version>${project.version}</version>
-            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.quickfixj</groupId>
+            <artifactId>quickfixj-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <version>1.7.30</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

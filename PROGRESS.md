@@ -10,7 +10,8 @@ _Last updated: 2026-10-05_
 
 ## Current phase
 
-**Phase 3 — Reference Data** (next up). Phase 2 (Order Flow) is complete.
+**Phase 4 — Pre-Trade Risk** (next up). Phase 3 (Reference Data) is complete
+(source-agnostic, per decision B2).
 
 ---
 
@@ -20,9 +21,9 @@ _Last updated: 2026-10-05_
 | --- | --- | --- |
 | 0 | OCG-C binary codec + dictionary + codegen | ✅ **done** (30 tests green) |
 | 1 | Session state machine (Lookup/Logon/heartbeat/sequence/recovery) + Mock OCG-C | ✅ **done** (28 tests green) |
-| 2 | Order flow (order state machine, QuickFIX/J FIX 5.0 SP2, FIX↔OCG-C mapping) | ✅ **done** (41 tests green) |
-| 3 | Reference data (OMD-C client, phase-aware cache) | ⏳ **next** |
-| 4 | Pre-trade risk (price check) | todo |
+| 2 | Order flow (order state machine, QuickFIX/J FIX 5.0 SP2, FIX↔OCG-C mapping) | ✅ **done** (34 tests green) |
+| 3 | Reference data (source-agnostic cache; OMD-C wire client deferred) | ✅ **done** (15 tests green) |
+| 4 | Pre-trade risk (price check) | ⏳ **next** |
 | 5 | Queue management (throttle, ID chaining, in-flight exclusivity) | todo |
 | 6 | Persistence (Chronicle WAL + Postgres) | todo |
 | 7 | Active/standby failover + CoD | todo |
@@ -43,67 +44,64 @@ admin-only (not in the hot path).
 
 ## Last session's work
 
-- **Phase 2 order flow** built and tested across new modules:
-  - `oms-test-harness` — `MockOcgServer` promoted out of `oms-session` test scope
-    (depends only on `oms-codec`; no module cycle) so later phases can reuse it.
-  - `oms-order` (pure domain, no QuickFIX):
-    - `OrderState`, `OrderEvent`, `Order`, `OrderStateMachine` (terminal-state
-      protection; Trade Cancel on `FILLED` busts but does **not** reinstate
-      leaves).
-    - `ClientOrderIdAllocator` (1..99,999,999, daily reset), `OrderRepository`,
-      `OrderChain` aliasing.
-    - `IngressValidator` (DESIGN §6.4), upstream-ClOrdID dedupe,
-      `ExecutionConsistency` (`leaves = qty − cum`).
-    - `ExecTypeMapper` (OCG Exec Type → internal event), `OrderTranslator`
-      (New/Amend/Cancel/MassCancel build + ER decode), `TransactionTime`.
-    - `OrderManager` orchestrator (submit/amend/cancel/massCancel, ER
-      reconciliation with Exec-ID dedupe).
-  - `oms-fix` (QuickFIX/J 2.3.1):
-    - `FixMapping` — FIX 5.0 SP2 ↔ internal, `OrderCancelReject (9)` synthesis
-      from `'X'`/`'Y'`.
-    - `FixOrderApplication` (QuickFIX `Application`), `FixAcceptor`.
-    - **L3 integration** `FixOrderFlowL3Test`: live Mock GFIX (QuickFIX/J
-      initiator) → OMS acceptor → OCG-C New Order → Execution Report → FIX.
-  - `oms-session` — `SessionEngine.send(Message)` + `setInboundHandler` for the
-    business-message path.
-  - **99 tests green** (30 codec + 28 session + 34 order + 7 fix).
-- **Phase 1** (prior session): session state machine + Mock OCG-C; hardening
-  (`sessionStatus`, Comp ID validation, bounded dedupe) — 28 tests.
-- **Phase 0**: unchanged, 30 tests green.
+- **Phase 3 reference data** (decision **B2** — source-agnostic) in new module
+  `oms-reference`:
+  - Domain: `TradingPhase` (POS/CAS/CTS + no-cancel/random-match/blocking, with
+    `permitsAmendOrCancel`), `VcmState`, `InstrumentState`, `PriceBand`,
+    `SpreadTable`, `SecurityReference`.
+  - `ReferenceUpdate` (sealed) mirrors the OMD-C messages in DESIGN.md §5.
+  - `PhaseAwareReferenceCache` — per-security `{spread_table, reference_price,
+    band, vcm_state, trading_phase}`; market-wide phase, per-security instrument
+    state.
+  - `ReferenceDataSource` interface + `ScriptedReferenceDataSource` (tests/demos)
+    + `StaticSpreadTable` (HKEX spread-table file fallback).
+  - **15 tests green** (`PhaseAwareReferenceCacheTest(6)`, `TradingPhaseTest(3)`,
+    `PriceBandTest(2)`, `StaticSpreadTableTest(2)`,
+    `ScriptedReferenceDataSourceTest(2)`).
+  - **Deferred:** the real `OmdClient` + dictionary codegen — no OMD-C data
+    dictionary is available (see open questions).
+  - Docs: recorded the source decision (OMD-C primary, Refinitiv deferred) in
+    `DESIGN.md` §5 and `UR.md` §7.
+  - **114 tests green** reactor-wide (30 codec + 28 session + 34 order +
+    15 reference + 7 fix).
+- **Phase 2 order flow** (prior session) — `oms-order`, `oms-fix`,
+  `oms-test-harness`; 34 + 7 tests.
+- **Phase 0/1** unchanged.
 
 ### Deviations / notes
 
+- `oms-reference` is deliberately source-agnostic (B2): no OMD-C wire decode
+  until the dictionary lands. A Refinitiv adapter can also plug into
+  `ReferenceDataSource` later.
+- `ScriptedReferenceDataSource` lives in `oms-reference` main (not
+  `oms-test-harness`) since it is dependency-free and useful for demos; can move
+  later.
 - `oms-order` stays free of QuickFIX; all FIX handling lives in `oms-fix`.
-- Optional repeating (`multi`) OCG-C fields (`executionInstructions`,
-  `orderRestrictions`) are deliberately omitted in v1 (codec group support is
-  separate work).
-- `ALE-70` (QuickFIX persistent store) deferred to Phase 6 per decision D17.
-- Mock GFIX currently lives in `oms-fix` test scope; may move to
-  `oms-test-harness` when Phase 3 needs it.
 
 ---
 
 ## Next actions (start here)
 
-Phase 3 — Reference data. Parent: `ALE-14`. OMD-C client + phase-aware
-Reference/Price/State cache (DESIGN.md §5; UR.md §5). No HKEX dependency.
+Phase 4 — Pre-trade risk (price check). Parent: `ALE-11`. Consumes the Phase 3
+cache; no HKEX dependency (Mock OMD-C / fixtures).
 
-- [ ] OMD-C message decode (shared codegen) for Security Definition, Reference
-      Price, VCM Trigger, Closing Price, Trading Session Status, Security Status
-- [ ] Phase-aware cache: per-security `{spread_table, reference_price, band,
-      vcm_state, trading_phase}`
-- [ ] Static spread-table fallback file
-- [ ] Mock OMD-C publisher + phase-transition scenarios
-- [ ] L4 preparation fixtures
+- [ ] `PriceCheck` consuming `PhaseAwareReferenceCache`: on-tick, price band
+      (16/101/102), reference-present (19), notional (20), quantity (13),
+      market-vs-limit price rule
+- [ ] Phase-aware rule selection (POS / CAS / CTS); VCM cooling-off band;
+      No-Cancellation blocks amend/cancel
+- [ ] `Execution Instructions` override entitlement seam
+- [ ] Local reject → FIX reject (no OCG-C round-trip) wiring into `OrderManager`
+- [ ] Table-driven L4 tests (phase transitions, boundary values)
 
-Acceptance bar: the `TEST_PLAN.md` L4 inputs (Phase 4 consumes this cache).
+Acceptance bar: the `TEST_PLAN.md` L4 tests.
 
 ---
 
 ## Verify
 
 ```bash
-mvn -q test     # expect 99 tests green (30 codec + 28 session + 34 order + 7 fix)
+mvn -q test     # expect 114 tests green (30 codec + 28 session + 34 order + 15 reference + 7 fix)
 ```
 
 ---
@@ -120,7 +118,10 @@ mvn -q test     # expect 99 tests green (30 codec + 28 session + 34 order + 7 fi
 - **Codegen emits enums only** (no typed POJOs) — data-driven codec works; POJO
   generation is an optional follow-up.
 - From HKEX: MPS entitlement, CoD delay, Comp ID / Submitting Broker ID scheme.
-- Reference data source confirmed as OMD-C direct; feed specifics TBD in Phase 3.
+- **OMD-C data dictionary/spec is not available** — so the real `OmdClient` wire
+  decode is deferred. Phase 3 built the source-agnostic cache (B2); the adapter
+  drops in when the dictionary lands. Source decision recorded: OMD-C primary,
+  Refinitiv deferred (`DESIGN.md` §5, `UR.md` §7).
 
 ---
 
@@ -137,6 +138,9 @@ and ratify/trim when unfolding the relevant phase.
   ingress ClOrdID dedupe, `ALE-68` ingress field validation, `ALE-69`
   cumQty/leaves consistency check, `ALE-46` stale/superseded ER handling +
   layering rule. `ALE-70` (QuickFIX/J persistent store) deferred to Phase 6 (D17).
+- **Phase 3 (Reference Data, `ALE-14`)** — delivered source-agnostic (B2);
+  `ALE-77` (OMD-C wire client + dictionary codegen) added as the deferred
+  adapter, pending the OMD-C dictionary.
 - **Phase 5 (Queue Management, `ALE-15`)** — beyond the original MPS throttle /
   ID chaining / in-flight exclusivity scope, added: `ALE-61` priority queue
   (cancels before new), `ALE-62` bounded queue + backpressure, `ALE-63` adaptive

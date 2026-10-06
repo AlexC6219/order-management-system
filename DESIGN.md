@@ -187,6 +187,19 @@ Fallback: a static HKEX-published spread-table file loaded at startup, so tick
 validation survives a market-data outage (the exchange's own reject codes
 16/19/20/101/102 remain the ultimate backstop).
 
+> **Source decision (2026-10-06): OMD-C primary; Refinitiv deferred.** The
+> original business requirement also named Refinitiv (LSEG) as a market-data
+> feed. For HKEX pre-trade, OMD-C is primary because it is the exchange's own
+> data — authoritative for HKEX tick/band/phase — and avoids a vendor hop and a
+> second outage domain. Refinitiv is out of scope for v1. The reference layer is
+> source-agnostic (`ReferenceDataSource`), so a Refinitiv adapter can be added
+> later without touching the price check. Note: Refinitiv is a vendor API, not a
+> data dictionary like OMD-C.
+>
+> **Phase 3 status:** no OMD-C data dictionary is available yet, so the wire
+> decode (`OmdClient`) is deferred; Phase 3 builds the source-agnostic cache and
+> a static/file source (see `PROGRESS.md`).
+
 ### 5.1 Phase-aware model
 
 The Reference & Price/State Cache maintains, per security, the tuple

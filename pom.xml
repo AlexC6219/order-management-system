@@ -17,6 +17,7 @@
         <module>oms-test-harness</module>
         <module>oms-session</module>
         <module>oms-order</module>
+        <module>oms-reference</module>
         <module>oms-fix</module>
     </modules>
 

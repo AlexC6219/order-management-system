@@ -97,3 +97,7 @@ Price validation must be keyed off the current trading phase (source: OMD-C):
 | Archive | Postgres |
 | Availability | Active/standby |
 | Admin / monitoring | Spring Boot (off hot path) |
+
+> **Reference-data source (2026-10-06):** OMD-C primary; Refinitiv (LSEG)
+> deferred for HKEX pre-trade. The reference layer is source-agnostic so a
+> Refinitiv adapter can be added later. See `DESIGN.md` §5.

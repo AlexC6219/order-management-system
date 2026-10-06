@@ -1,6 +1,5 @@
 package com.hase.oms.order;
 
-import com.hase.oms.codec.Dictionary;
 import com.hase.oms.codec.Message;
 
 import java.time.Clock;
@@ -8,9 +7,9 @@ import java.time.Clock;
 /**
  * Builds OCG-C order messages from internal orders (DESIGN.md §8).
  *
- * <p>Field names/types come from the dictionary; the dictionary is not otherwise
- * consulted here because the mapping is fixed by DESIGN.md §8. Optional
- * repeating (`multi`) fields are deliberately omitted in v1.
+ * <p>Field names/types follow the OCG-C dictionary; the mapping is fixed by
+ * DESIGN.md §8. Optional repeating (`multi`) fields are deliberately omitted in
+ * v1.
  */
 public final class OrderTranslator {
 
@@ -26,7 +25,7 @@ public final class OrderTranslator {
     private final String compId;
     private final Clock clock;
 
-    public OrderTranslator(Dictionary dict, String compId, Clock clock) {
+    public OrderTranslator(String compId, Clock clock) {
         this.compId = compId;
         this.clock = clock;
     }

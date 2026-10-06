@@ -1,6 +1,5 @@
 package com.hase.oms.order;
 
-import com.hase.oms.codec.Dictionary;
 import com.hase.oms.codec.Message;
 import com.hase.oms.codec.enums.OrderType;
 import com.hase.oms.codec.enums.Side;
@@ -27,10 +26,7 @@ class OrderManagerTest {
     private final OrderManager manager;
 
     OrderManagerTest() {
-        Dictionary dict = Dictionary.load(
-                OrderManagerTest.class.getResourceAsStream("/fields.yaml"),
-                OrderManagerTest.class.getResourceAsStream("/messages.yaml"));
-        OrderTranslator translator = new OrderTranslator(dict, "TEST", FIXED);
+        OrderTranslator translator = new OrderTranslator("TEST", FIXED);
         manager = new OrderManager(new ClientOrderIdAllocator(), translator, outbound::add);
     }
 

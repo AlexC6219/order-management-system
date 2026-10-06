@@ -27,7 +27,7 @@ class OrderTranslatorTest {
     }
 
     private static OrderTranslator translator() {
-        return new OrderTranslator(dict(), "TEST", FIXED);
+        return new OrderTranslator("TEST", FIXED);
     }
 
     private static Order order() {

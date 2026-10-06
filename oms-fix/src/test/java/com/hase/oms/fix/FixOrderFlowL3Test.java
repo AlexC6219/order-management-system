@@ -1,6 +1,5 @@
 package com.hase.oms.fix;
 
-import com.hase.oms.codec.Dictionary;
 import com.hase.oms.codec.Message;
 import com.hase.oms.order.ClientOrderIdAllocator;
 import com.hase.oms.order.Order;
@@ -56,11 +55,7 @@ class FixOrderFlowL3Test {
 
     @BeforeEach
     void setUp() throws Exception {
-        Dictionary dict = Dictionary.load(
-                FixOrderFlowL3Test.class.getResourceAsStream("/fields.yaml"),
-                FixOrderFlowL3Test.class.getResourceAsStream("/messages.yaml"));
-
-        OrderTranslator translator = new OrderTranslator(dict, "OMS", Clock.systemUTC());
+        OrderTranslator translator = new OrderTranslator("OMS", Clock.systemUTC());
         orderManager = new OrderManager(new ClientOrderIdAllocator(), translator, ocgOutbound::add);
 
         acceptorApp = new FixOrderApplication(new FixOrderHandler() {

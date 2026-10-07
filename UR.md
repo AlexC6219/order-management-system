@@ -66,14 +66,29 @@ cancel. These message types are still modelled in the codec and data dictionary.
 
 ## 5. Phase-aware price checking
 
-Price validation must be keyed off the current trading phase (source: OMD-C):
+Price validation must be keyed off the current trading **session** and
+**sub-period** (source: OMD-C). Full timings and rules: `DESIGN.md` §5.1.
 
-| Phase | Reference price | Rule |
-| --- | --- | --- |
-| POS (Pre-Opening) | previous close | Stage 1 ±15% of prev close; Stage 2 best bid/ask; 9-times rule; short-sell tick rule. |
-| CAS (Closing Auction) | disseminated reference | same Stage 1/Stage 2 structure. |
-| CTS (continuous) | last automatch 5 min ago (dynamic) | VCM ±10/15/20% by index tier; cooling-off bands. |
-| No-cancellation / Random Matching / Blocking | — | amend/cancel not permitted. |
+| Session | Reference price | Price limit | Amend/cancel |
+| --- | --- | --- | --- |
+| POS (Pre-Opening) | previous close | Stage 1 ±15% (order input); Stage 2 within [highest bid, lowest ask] (no-cancellation, random matching) | allowed in order input only |
+| CTS (Continuous) | median of 5 nominal snapshots | VCM ±10/15/20% by index tier; cooling-off bands | allowed |
+| CAS (Closing Auction) | fixed reference | Stage 1 ±5% (order input); Stage 2 within [highest bid, lowest ask] (no-cancellation, random closing) | allowed in order input only |
+
+Order types in POS/CAS: at-auction order, at-auction limit order. The reference
+price-fixing sub-period (CAS) and blocking sub-period (POS) allow no input.
+
+Additional controls:
+
+- **9-times rule (CTS):** reject any order whose price deviates by 9× or more
+  from the current Nominal Price (or Previous Close) — e.g. nominal 10.00 ⇒ buy
+  ≥ 90.00 and sell ≤ 1.11 are rejected.
+- **Short-sell rules** (`Side = 5`): POS/CAS allow only at-auction limit orders
+  (pure at-auction orders rejected); POS is exempt from the traditional tick rule
+  but must satisfy the ±15% POS limit; CTS applies the traditional tick rule (not
+  below best ask); CAS short-sale price cannot be below the CAS reference price
+  (fixed at 16:01). Exemptions: market-maker/hedging (POS/CTS); designated index
+  arbitrage, stock-futures and options hedging (CAS).
 
 ## 6. Key configuration (external / benchmarked)
 

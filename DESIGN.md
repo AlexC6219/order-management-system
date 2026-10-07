@@ -204,14 +204,65 @@ validation survives a market-data outage (the exchange's own reject codes
 
 The Reference & Price/State Cache maintains, per security, the tuple
 `{spread_table, reference_price, band, vcm_state, trading_phase}`. Price check
-keys its validation off the current phase:
+keys its validation off the current **session** and **sub-period**.
 
-| Phase | Reference price | Rule |
-| --- | --- | --- |
-| POS | previous close | Stage 1 ±15%; Stage 2 best bid/ask; 9-times rule; short-sell tick rule |
-| CAS | disseminated reference | Stage 1/Stage 2 structure |
-| CTS | last automatch 5 min ago | VCM ±10/15/20%; cooling-off bands |
-| No-cancellation / Random Matching / Blocking | — | amend/cancel not permitted |
+Trading is organised into **sessions**, each with **sub-periods** that determine
+the price-limit rule and the actions permitted. Durations (e.g. random matching
+0–2 min) and exact percentages are HKEX-published and may vary at HKEX's
+discretion.
+
+#### Pre-Opening Session (POS)
+
+| Time | Sub-period | Price limit | Actions |
+| --- | --- | --- | --- |
+| 09:00–09:15 | Order input (15 min) | **Stage 1**: ±15% of previous close | input, cancel, amend |
+| 09:15–09:20 | No-cancellation (5 min) | **Stage 2**: within [highest bid, lowest ask] recorded at the end of order input | input only (no cancel/amend) |
+| 09:20–09:22 | Random matching (0–2 min) | **Stage 2** (same) | input only |
+| 09:22–09:30 | Blocking | — | none; unfilled at-auction limit orders carried to CTS as limit orders |
+
+Order types in POS: at-auction order, at-auction limit order.
+
+#### Continuous Trading Session (CTS)
+
+| Time | Rule |
+| --- | --- |
+| 09:30–12:00, 13:00–16:00 | Reference price = median of 5 snapshot nominal prices in the last minutes of CTS; VCM ±10/15/20% by index tier; cooling-off bands |
+
+#### Closing Auction Session (CAS)
+
+| Time | Sub-period | Price limit | Actions |
+| --- | --- | --- | --- |
+| 16:00–16:01 | Reference price fixing (1 min) | — (orders within the price limit carried forward) | none (no input/cancel/amend) |
+| 16:01–16:06 | Order input (5 min) | **Stage 1**: ±5% of reference price | input, cancel, amend |
+| 16:06–16:08 | No-cancellation (2 min) | **Stage 2**: within [highest bid, lowest ask] | input only |
+| 16:08–16:10 | Random closing (2 min) | **Stage 2** (same) | input only |
+
+Order types in CAS: at-auction order, at-auction limit order.
+
+**Stage 1** = a band around the reference price. **Stage 2** = a band bounded by
+the best bid/ask recorded at the end of the order-input sub-period (the exchange
+does not publish a pre-computed Stage-2 limit; the OMS computes it from the
+captured top-of-book). CTS uses **VCM** bands, not Stage 1/2.
+
+**Stage 1 / Stage 2 are price-limit regimes, not time periods** (industry-standard
+names, retained): Stage 1 is the limit in force during order input; Stage 2 is the
+limit in force during no-cancellation and random matching/closing.
+
+#### 9-times rule (CTS)
+
+HKEX rejects any order whose price deviates by **9× or more** from the asset's
+current Nominal Price (or Previous Close). E.g. at a nominal price of 10.00, a
+buy limit at ≥ 90.00 and a sell limit at ≤ 1.11 are rejected. Applies in CTS.
+
+#### Short-sell rules
+
+Short-sell orders (`Side = 5 SellShort`) are restricted per session:
+
+| Dimension | POS (09:00–09:30) | CTS (09:30–16:00) | CAS (16:00–16:10) |
+| --- | --- | --- | --- |
+| Allowed order types | At-auction limit orders only (pure at-auction orders rejected) | Standard limit orders flagged with the short-sale indicator | At-auction limit orders only (pure at-auction orders rejected) |
+| Pricing (tick rule) | Exempt from the traditional tick rule (single-price auction); must still satisfy the ±15% POS price limit | Traditional tick rule applies: price cannot be below the current best ask | CAS tick rule: short-sale price cannot be lower than the CAS reference price (fixed at 16:01) |
+| Exemptions | Standard market-maker / hedging rules | Program-trading / market-maker exemptions | Designated index arbitrage, stock-futures hedging, options hedging exempt from the CAS tick rule |
 
 ---
 

@@ -18,20 +18,28 @@ Protocol**.
 
 ## Where we are — READ THIS FIRST
 
-- **Current phase:** Phase 1 — OCG-C Session. Phase 0 (codec) is done, 30 tests
-  green.
+- **Current phase:** Phase 4 — Pre-Trade Risk (price check). Phases 0–3 are done:
+  codec, session, order flow, reference data. Reactor **114 tests green**.
 - **Resume point:** read `PROGRESS.md` for live status, next actions, and open
-  questions **before doing anything else**.
+  questions **before doing anything else**. Phase-specific scope, acceptance
+  criteria and decisions live in `docs/kickoff/phase-<n>.md` (e.g.
+  `docs/kickoff/phase-4.md`).
+- **Modules:** `codegen` → generates `oms-codec` enums; `oms-codec` (bytes),
+  `oms-session` (OCG-C session), `oms-order` (order domain), `oms-reference`
+  (phase-aware reference cache), `oms-fix` (FIX 5.0 SP2 adapter),
+  `oms-test-harness` (mock OCG-C). Dependencies point downward; see
+  `PROGRESS.md`.
 - **Plan / backlog:** Linear project *HKEX Connect Binary Trading OMS* (team
-  `ALE`). Treat Linear as the backlog; `PROGRESS.md` + git are the source of
-  truth for current state.
+  `ALE`). Label `agent-added` marks agent-proposed scope. Treat Linear as the
+  backlog; `PROGRESS.md` + git are the source of truth for current state.
 - **At the end of every session:** update `PROGRESS.md`, ensure `mvn -q test` is
   green, commit, and reflect status in Linear. See `PROGRESS.md` → "Session
   discipline".
 
 ## Build & test
 
-Maven multi-module project (`codegen`, `oms-codec`), Java 21.
+Maven multi-module project (`codegen`, `oms-codec`, `oms-session`, `oms-order`,
+`oms-reference`, `oms-fix`, `oms-test-harness`), Java 21.
 
 ```bash
 mvn -q test                 # unit tests

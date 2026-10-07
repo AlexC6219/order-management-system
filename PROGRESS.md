@@ -4,14 +4,15 @@ The single living "where are we / what next" document. **Update this at the end
 of every session** (see "Session discipline" at the bottom). A fresh agent
 should read `AGENTS.md` → this file → pick up the "Next actions".
 
-_Last updated: 2026-10-05_
+_Last updated: 2026-10-06_
 
 ---
 
 ## Current phase
 
 **Phase 4 — Pre-Trade Risk** (next up). Phase 3 (Reference Data) is complete
-(source-agnostic, per decision B2).
+(source-agnostic, per decision B2). Full Phase 4 scope, acceptance and decisions:
+`docs/kickoff/phase-4.md`.
 
 ---
 
@@ -64,6 +65,12 @@ admin-only (not in the hot path).
     `DESIGN.md` §5 and `UR.md` §7.
   - **114 tests green** reactor-wide (30 codec + 28 session + 34 order +
     15 reference + 7 fix).
+- **Trading-phase model captured** (docs only, this session): the full
+  session/sub-period rules are now in `DESIGN.md` §5.1 and `UR.md` §5 — POS /
+  CTS / CAS sub-periods, Stage 1/Stage 2 price-limit regimes (industry-standard
+  names retained), the **9-times rule** (CTS) and the **short-sell rules**
+  (POS/CTS/CAS). `AGENTS.md` and `docs/kickoff/phase-4.md` updated for the next
+  session.
 - **Phase 2 order flow** (prior session) — `oms-order`, `oms-fix`,
   `oms-test-harness`; 34 + 7 tests.
 - **Phase 0/1** unchanged.
@@ -83,15 +90,23 @@ admin-only (not in the hot path).
 ## Next actions (start here)
 
 Phase 4 — Pre-trade risk (price check). Parent: `ALE-11`. Consumes the Phase 3
-cache; no HKEX dependency (Mock OMD-C / fixtures).
+cache; no HKEX dependency (Mock OMD-C / fixtures). Full brief:
+`docs/kickoff/phase-4.md`.
 
-- [ ] `PriceCheck` consuming `PhaseAwareReferenceCache`: on-tick, price band
+- [ ] **Prerequisite — extend the reference model (Option A):** add
+      `previousClose`, `nominalPrice`, `bestBid`/`bestAsk` and a session +
+      sub-period model to `oms-reference`; capture the Stage-2 band at the
+      order-input boundary. Keep the Stage 1 / Stage 2 names.
+- [ ] `oms-risk` module: `PriceCheck` consuming the cache — on-tick, price band
       (16/101/102), reference-present (19), notional (20), quantity (13),
       market-vs-limit price rule
-- [ ] Phase-aware rule selection (POS / CAS / CTS); VCM cooling-off band;
-      No-Cancellation blocks amend/cancel
+- [ ] Phase-aware rules: POS Stage 1 ±15% / CAS Stage 1 ±5% / Stage 2
+      [highest bid, lowest ask]; CTS VCM ±10/15/20% + cooling-off; blocking /
+      reference-price-fixing = no input; no-cancellation / random = input only
+- [ ] **9-times rule** (CTS) and **short-sell rules** (POS/CTS/CAS)
 - [ ] `Execution Instructions` override entitlement seam
-- [ ] Local reject → FIX reject (no OCG-C round-trip) wiring into `OrderManager`
+- [ ] Local reject → FIX reject (ExecutionReport / OrderCancelReject), no OCG-C
+      round-trip; wired via an intake/composition layer
 - [ ] Table-driven L4 tests (phase transitions, boundary values)
 
 Acceptance bar: the `TEST_PLAN.md` L4 tests.
@@ -122,6 +137,19 @@ mvn -q test     # expect 114 tests green (30 codec + 28 session + 34 order + 15 
   decode is deferred. Phase 3 built the source-agnostic cache (B2); the adapter
   drops in when the dictionary lands. Source decision recorded: OMD-C primary,
   Refinitiv deferred (`DESIGN.md` §5, `UR.md` §7).
+- **Best bid/ask source** — the Stage-2 band is `[highest bid, lowest ask]`
+  captured at the end of order input. *Which* OMD-C message carries top-of-book
+  is unknown until the OMD-C dictionary lands (`ALE-77`); model it via the mock
+  for now.
+- **Stage-2 capture** — cache captures the band automatically on the
+  `order-input → no-cancellation` transition (vs an explicit published update);
+  to confirm when building Phase 4.
+- **Sub-period modelling** — `oms-reference` currently has a flat `TradingPhase`;
+  Phase 4 needs session + sub-period. Extension pending.
+- **9-times rule scope** — documented as CTS; confirm whether it also applies
+  elsewhere, and whether the base is Nominal Price or Previous Close.
+- **Short-sell exemptions** — the market-maker/hedging and index-arbitrage
+  exemptions need an entitlement source (TBD).
 
 ---
 

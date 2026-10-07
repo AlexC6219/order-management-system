@@ -1,0 +1,37 @@
+# OMD-C field dictionary (DRAFT — subset)
+#
+# Derived from the PUBLIC HKEX "OMD-C Binary Interface Specifications v1.45".
+# Licence: HKEX Market Data Vendor / End-User / ASP Licence Agreement — see
+# docs/omd-c-dictionary-plan.md. Prototype only; confirm licensing before use.
+#
+# Formats: uint8/16/32/64, int16/32/64 are little-endian; string is ASCII,
+# left-aligned, space-padded; prices carry an implied decimal count.
+
+fields:
+  - { name: securityCode,          format: uint32, len: 4, min: 1, max: 99999 }
+  - { name: marketCode,            format: string, len: 4, enums: { MAIN: Main, GEM: Gem, NASD: Nasd, ETS: Ets } }
+  - { name: isinCode,              format: string, len: 12 }
+  - { name: instrumentType,        format: string, len: 4, enums: { BOND: Bond, EQTY: Equities, TRST: Trusts, WRNT: "Warrants & Structured Products" } }
+  - { name: productType,           format: uint8,  len: 1 }
+  - { name: spreadTableCode,       format: string, len: 2 }
+  - { name: suspensionIndicator,   format: uint8,  len: 1, enums: { 2: "TradingHaltOrSuspend", 3: Resume } }
+  - { name: closingPrice,          format: int32,  len: 4, decimals: 3 }
+  - { name: numberOfTrades,        format: uint32, len: 4 }
+  - { name: filler,                format: string, len: 1 }
+  - name: tradingSessionSubId
+    format: uint8
+    len: 1
+    enums:
+      100: NotYetOpen
+      1: "POS.OrderInput"
+      101: "POS.NoCancellation"
+      108: "POS.RandomMatching"
+      2: "POS.OrderMatching"
+      7: Blocking
+      3: "CTS.ContinuousTrading"
+      105: "CAS.ReferencePriceFixing"
+      5: "CAS.OrderInput"
+      106: "CAS.NoCancellation"
+      107: "CAS.RandomClose"
+      4: "CAS.OrderMatching"
+      102: ExchangeIntervention

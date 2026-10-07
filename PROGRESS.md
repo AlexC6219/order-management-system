@@ -133,9 +133,13 @@ mvn -q test     # expect 114 tests green (30 codec + 28 session + 34 order + 15 
 - **Codegen emits enums only** (no typed POJOs) — data-driven codec works; POJO
   generation is an optional follow-up.
 - From HKEX: MPS entitlement, CoD delay, Comp ID / Submitting Broker ID scheme.
-- **OMD-C data dictionary/spec is not available** — so the real `OmdClient` wire
-  decode is deferred. Phase 3 built the source-agnostic cache (B2); the adapter
-  drops in when the dictionary lands. Source decision recorded: OMD-C primary,
+- **OMD-C data dictionary — found (public).** HKEX publishes the *OMD-C Binary
+  Interface Specifications* (v1.45, 2026-01-09) on `hkex.com.hk`; it contains the
+  message/field definitions. A **prototype dictionary** is drafted at
+  `dictionary/omd-c/` with the plan in `docs/omd-c-dictionary-plan.md`. The wire
+  client (`OmdClient`) is still deferred (`ALE-77`) because **the spec is
+  licensed** (HKEX Market Data Licence) — production use/credentials need HASE's
+  EP/market-data licence or a BSS vendor. Source decision: OMD-C primary,
   Refinitiv deferred (`DESIGN.md` §5, `UR.md` §7).
 - **Best bid/ask source** — the Stage-2 band is `[highest bid, lowest ask]`
   captured at the end of order input. *Which* OMD-C message carries top-of-book

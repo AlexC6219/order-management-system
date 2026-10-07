@@ -1,0 +1,46 @@
+# OMD-C message definitions (DRAFT — subset)
+#
+# Derived from the PUBLIC HKEX "OMD-C Binary Interface Specifications v1.45".
+# Licence: HKEX Market Data Vendor / End-User / ASP Licence Agreement — see
+# docs/omd-c-dictionary-plan.md. Prototype only; confirm licensing before use.
+#
+# Each message begins with MsgSize(Uint16,2) + MsgType(Uint16,2); fields follow at
+# fixed offsets. Field names refer to omd-c/fields.yaml.
+
+messages:
+  - name: SecurityDefinition
+    type: 11
+    fields:
+      - { offset: 4,  field: securityCode,     format: uint32, len: 4 }
+      - { offset: 8,  field: marketCode,       format: string, len: 4 }
+      - { offset: 12, field: isinCode,         format: string, len: 12 }
+      - { offset: 24, field: instrumentType,   format: string, len: 4 }
+      - { offset: 28, field: productType,      format: uint8,  len: 1 }
+      - { offset: 29, field: filler,           format: string, len: 1 }
+      - { offset: 30, field: spreadTableCode,  format: string, len: 2 }
+      # more fields follow in the spec (e.g. FreeText) — extend when needed
+
+  - name: TradingSessionStatus
+    type: 20
+    fields:
+      - { offset: 4, field: marketCode,          format: string, len: 4 }
+      - { offset: 8, field: filler,              format: string, len: 1 }
+      - { offset: 9, field: tradingSessionSubId, format: uint8,  len: 1 }
+
+  - name: SecurityStatus
+    type: 21
+    fields:
+      - { offset: 4, field: securityCode,        format: uint32, len: 4 }
+      - { offset: 8, field: suspensionIndicator, format: uint8,  len: 1 }
+      - { offset: 9, field: filler,              format: string, len: 3 }
+
+  - name: ClosingPrice
+    type: 62
+    fields:
+      - { offset: 4,  field: securityCode,   format: uint32, len: 4 }
+      - { offset: 8,  field: closingPrice,   format: int32,  len: 4, decimals: 3 }
+      - { offset: 12, field: numberOfTrades, format: uint32, len: 4 }
+
+  # TODO (extract from the spec): VCM Trigger (23), Nominal Price (40),
+  # Indicative Equilibrium Price (41), Reference Price (43),
+  # Aggregate Order Book Update (53), Add/Modify/Delete Order (30/31/32).
